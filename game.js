@@ -377,7 +377,7 @@
         assists: 0,
         matches: 0
       },
-      matchMode: 'momentos',
+      matchMode: 'tecnico',
       preparation: { training: false, lineup: false, tactics: false, market: false },
       news: ['Temporada criada. O universo sul-americano está pronto.'],
       achievements: [],
@@ -393,7 +393,10 @@
 
   function migrate(raw) {
     if (!raw) return null;
-    if (raw.version === 8 && raw.teams && raw.fixtures) return raw;
+    if (raw.version === 8 && raw.teams && raw.fixtures) {
+      if (!['tecnico', 'completo'].includes(raw.matchMode)) raw.matchMode = 'tecnico';
+      return raw;
+    }
 
     const migrated = newGame({
       coach: raw.user?.coach || 'João',
@@ -563,7 +566,7 @@
         <div class="panel heroPanel">
           <div class="logo">B</div>
           <h1>Boleiros</h1>
-          <p class="lead">Manager sul-americano com clubes fictícios, calendário realista, escolha por divisão, três modos de partida e campanha salva no navegador.</p>
+          <p class="lead">Manager sul-americano com clubes fictícios, calendário realista, modo Técnico e carreira jogável no modo Completo.</p>
           <div class="actionbar heroActions">
             <button class="pri" data-start="new">Novo jogo</button>
             ${hasSave ? '<button data-start="continue">Continuar campanha</button>' : ''}
@@ -573,7 +576,7 @@
           <div class="g4">
             <div class="card"><b>Sem cara de protótipo</b><p class="mut">Fluxo mais limpo, ações consistentes e menos botão solto.</p></div>
             <div class="card"><b>Escolha clara</b><p class="mut">Times por divisão e ordem alfabética.</p></div>
-            <div class="card"><b>Partida melhorada</b><p class="mut">Momentos, técnico e modo completo com leitura de jogo.</p></div>
+            <div class="card"><b>Dois jeitos de jogar</b><p class="mut">Comande como Técnico ou controle o Boleiro no modo Completo.</p></div>
             <div class="card"><b>Mobile first</b><p class="mut">Controles grandes, ações no rodapé e interface compacta.</p></div>
           </div>
         </div>
@@ -765,7 +768,7 @@
   }
 
   function modeLabel(mode) {
-    return mode === 'momentos' ? 'Momentos' : mode === 'tecnico' ? 'Técnico' : 'Completo';
+    return mode === 'completo' ? 'Completo' : 'Técnico';
   }
 
   function nextMatchCard() {
@@ -989,9 +992,8 @@
 
     partida() {
       const modes = [
-        ['momentos','Momentos decisivos','Você entra só nos lances importantes. Melhor para campanha rápida.'],
-        ['tecnico','Simulação do técnico','O jogo corre sozinho, com pausa, ajustes e substituição. Melhor para manager.'],
-        ['completo','Jogar completo','Top view com movimento, passe, chute, cruzamento e carrinho. Melhor para ação.']
+        ['tecnico','Técnico','A partida corre sozinha. Ajuste a mentalidade, faça substituições e administre o resultado.'],
+        ['completo','Completo','Controle somente o Boleiro em uma partida contínua. O restante dos jogadores é comandado pela IA.']
       ];
 
       return `
@@ -1002,7 +1004,7 @@
           </div>
           ${nextMatchCard()}
           <br>
-          <div class="g3">
+          <div class="g2">
             ${modes.map(([id, title, description]) => `
               <button class="modeCard ${state.matchMode === id ? 'selected' : ''}" data-mode="${id}">
                 <b>${title}</b>
@@ -1231,6 +1233,7 @@
 
   function renderMatchShell() {
     const fixture = currentMatchFixture();
+    box.classList.toggle('completeMatch', activeMatch.mode === 'completo');
     box.innerHTML = `
       <div class="modalHead">
         <div>
@@ -1260,58 +1263,61 @@
   }
 
   function matchControls() {
-    const top = `
-      <div class="actionbar matchActions">
-        <button data-switch-mode="momentos" class="${activeMatch.mode === 'momentos' ? 'pri' : ''}">Momentos</button>
-        <button data-switch-mode="tecnico" class="${activeMatch.mode === 'tecnico' ? 'pri' : ''}">Técnico</button>
-        <button data-switch-mode="completo" class="${activeMatch.mode === 'completo' ? 'pri' : ''}">Completo</button>
-        <button data-match="pause">${activeMatch.paused ? 'Continuar' : 'Pausar'}</button>
-        <button class="pri" data-match="finish">Encerrar</button>
-      </div>`;
-
-    if (activeMatch.mode === 'momentos') {
-      return top + `
-        <div class="card">
-          <b>Lance decisivo</b>
-          <p class="mut">Toque no campo para mirar. Quanto mais central, maior a chance.</p>
-          <div class="actionbar">
-            <button class="pri" data-moment="shoot">Chutar</button>
-            <button data-moment="pass">Passe</button>
-            <button data-moment="dribble">Drible</button>
-            <button data-moment="defend">Defender</button>
-          </div>
-        </div>`;
-    }
+    const top = '<div class="actionbar matchActions">' +
+      '<button data-switch-mode="tecnico" class="' + (activeMatch.mode === 'tecnico' ? 'pri' : '') + '">Técnico</button>' +
+      '<button data-switch-mode="completo" class="' + (activeMatch.mode === 'completo' ? 'pri' : '') + '">Completo</button>' +
+      '<button data-match="pause">' + (activeMatch.paused ? 'Continuar' : 'Pausar') + '</button>' +
+      '<button data-match="finish">Encerrar</button>' +
+    '</div>';
 
     if (activeMatch.mode === 'tecnico') {
-      return top + `
-        <div class="card">
-          <b>Área técnica</b>
-          <p class="mut">Mude mentalidade, pause para respirar o jogo ou faça uma substituição de fôlego.</p>
-          <div class="actionbar">
-            <button data-coach="Ofensiva">Ofensiva</button>
-            <button data-coach="Equilibrada">Equilibrada</button>
-            <button data-coach="Defensiva">Defensiva</button>
-            <button data-coach="sub">Substituir cansado</button>
-          </div>
-        </div>`;
+      return top +
+        '<div class="card coachControls">' +
+          '<b>Área técnica</b>' +
+          '<p class="mut">A partida acontece automaticamente. Você interfere no plano de jogo.</p>' +
+          '<div class="actionbar">' +
+            '<button data-coach="Ofensiva">Ofensiva</button>' +
+            '<button data-coach="Equilibrada">Equilibrada</button>' +
+            '<button data-coach="Defensiva">Defensiva</button>' +
+            '<button data-coach="sub">Substituir cansado</button>' +
+          '</div>' +
+        '</div>';
     }
 
-    return top + `
-      <div class="touch">
-        <div class="dpad">
-          <span></span><button data-hold="up">▲</button><span></span>
-          <button data-hold="left">◀</button><button data-hold="down">▼</button><button data-hold="right">▶</button>
-          <span></span><button data-hold="down">▼</button><span></span>
-        </div>
-        <div class="actBtns">
-          <button class="pri" data-full="shoot">Chutar</button>
-          <button data-full="pass">Passe</button>
-          <button data-full="cross">Cruzamento</button>
-          <button data-full="tackle">Carrinho</button>
-        </div>
-      </div>
-      <p class="mut mini">Desktop: WASD ou setas, J chute, K passe, L cruza, I carrinho.</p>`;
+    const full = activeMatch.full;
+    if (!full || !full.ready) {
+      const selected = starters();
+      return top +
+        '<div class="completeIntro">' +
+          '<div><span class="tag ok">Sua posição</span><h3>' + html(state.career.name) + '</h3>' +
+          '<p class="mut">Você controla apenas o jogador marcado com a estrela. Seus companheiros se movimentam e tomam decisões pela IA.</p></div>' +
+          '<div class="formationPreview">' +
+            selected.map((player, index) => '<span class="' + (player.star ? 'you' : '') + '" style="left:' + (pitchPositions[index]?.[0] || 50) + '%;top:' + (pitchPositions[index]?.[1] || 50) + '%">' + player.pos + (player.star ? ' ★' : '') + '</span>').join('') +
+          '</div>' +
+          '<button class="pri wide" data-match="kickoff">Entrar em campo</button>' +
+        '</div>';
+    }
+
+    return top +
+      '<div class="completeHud">' +
+        '<div><span>Nota</span><b data-full-rating>' + full.rating.toFixed(1).replace('.', ',') + '</b></div>' +
+        '<div><span>Energia</span><b data-full-stamina>' + Math.round(full.stamina) + '%</b></div>' +
+        '<div class="fullFeedback" data-full-feedback>' + html(full.feedback) + '</div>' +
+      '</div>' +
+      '<div class="touch">' +
+        '<div class="dpad">' +
+          '<span></span><button aria-label="Cima" data-hold="up">▲</button><span></span>' +
+          '<button aria-label="Esquerda" data-hold="left">◀</button><span class="stickCenter">★</span><button aria-label="Direita" data-hold="right">▶</button>' +
+          '<span></span><button aria-label="Baixo" data-hold="down">▼</button><span></span>' +
+        '</div>' +
+        '<div class="actBtns">' +
+          '<button class="pri" data-full="shoot">Chutar</button>' +
+          '<button data-full="pass">Passe / pedir</button>' +
+          '<button data-full="cross">Cruzamento</button>' +
+          '<button data-full="tackle">Carrinho</button>' +
+        '</div>' +
+      '</div>' +
+      '<p class="mut mini completeHelp">Toque no campo para correr até um ponto. No desktop use WASD ou setas. J chuta, K passa, L cruza e I dá carrinho.</p>';
   }
 
   function drawField(ctx, width, height) {
@@ -1340,12 +1346,13 @@
     const height = canvas.height;
 
     ctx.clearRect(0, 0, width, height);
-    drawField(ctx, width, height);
 
     if (activeMatch.mode === 'completo' && activeMatch.full) {
       drawFullMode(ctx, width, height);
       return;
     }
+
+    drawField(ctx, width, height);
 
     const dots = [[13,50],[26,25],[26,50],[26,75],[48,30],[48,70],[67,26],[81,50],[67,74]];
     dots.forEach((point, index) => {
@@ -1454,86 +1461,573 @@
   }
 
   function startFullMode() {
+    stopLoopOnly();
+    const fixture = currentMatchFixture();
+    const userSide = fixture.home === state.user.teamId ? 'home' : 'away';
+    const layout = [
+      [6,38,'GOL'], [25,10,'LE'], [25,29,'ZAG'], [25,47,'ZAG'], [25,66,'LD'],
+      [50,17,'MC'], [50,38,'VOL'], [50,59,'MC'], [79,15,'PE'], [84,38,'ATA'], [79,61,'PD']
+    ];
+
+    function buildSide(side, teamId) {
+      const selected = squad(teamId).slice().sort((a, b) => Number(b.starter) - Number(a.starter) || b.overall - a.overall).slice(0, 11);
+      return layout.map((spot, index) => {
+        const player = selected[index] || { name: 'Jogador ' + (index + 1), pos: spot[2], overall: 60, star: false };
+        const baseX = side === 'home' ? spot[0] : 120 - spot[0];
+        return {
+          x: baseX, y: spot[1], baseX: baseX, baseY: spot[1],
+          vx: 0, vy: 0, side: side, index: index, role: spot[2],
+          name: player.name, overall: player.overall || 60, star: Boolean(player.star),
+          decision: Math.random() * 1.2
+        };
+      });
+    }
+
+    const home = buildSide('home', fixture.home);
+    const away = buildSide('away', fixture.away);
+    const userPlayers = userSide === 'home' ? home : away;
+    let userIndex = userPlayers.findIndex(player => player.star);
+    if (userIndex < 0) userIndex = 9;
+
     activeMatch.full = {
-      playerX: 22,
-      playerY: 50,
-      ballX: 24,
-      ballY: 50,
-      possession: 'user',
-      aiTicks: 0,
-      stamina: 100,
-      teammates: [[18,22,'A'],[18,78,'A'],[42,35,'M'],[42,65,'M'],[70,28,'P'],[70,72,'P']],
-      opponents: [[78,22,'D'],[78,50,'D'],[78,78,'D'],[58,45,'M'],[58,65,'M']]
+      ready: false,
+      home: home,
+      away: away,
+      userSide: userSide,
+      userIndex: userIndex,
+      stamina: Math.max(45, state.career.energy),
+      rating: 6,
+      feedback: 'Mantenha sua posição e participe da jogada.',
+      feedbackTimer: 0,
+      positionTimer: 0,
+      targetX: null,
+      targetY: null,
+      callForPass: false,
+      lastTime: 0,
+      halfHandled: false,
+      deadFor: 0,
+      banner: '',
+      bannerFor: 0,
+      possessionHome: 0,
+      possessionAway: 0,
+      ball: { x: 60, y: 38, vx: 0, vy: 0, owner: { side: 'home', index: 9 }, target: null, shot: false },
+      lastTouch: { side: 'home', index: 9 },
+      lastPasser: null,
+      camera: { left: 17, top: 14, viewW: 86, viewH: 48 }
     };
-    fullLoop();
+
+    renderMatchShell();
+  }
+
+  function fullPlayer(side, index) {
+    if (!activeMatch?.full) return null;
+    return activeMatch.full[side]?.[index] || null;
+  }
+
+  function fullUser() {
+    const full = activeMatch.full;
+    return fullPlayer(full.userSide, full.userIndex);
+  }
+
+  function floatClamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function distanceBetween(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  function moveTowards(player, x, y, speed, dt) {
+    const dx = x - player.x;
+    const dy = y - player.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 0.05) return;
+    const amount = Math.min(distance, speed * dt);
+    player.vx = dx / distance * speed;
+    player.vy = dy / distance * speed;
+    player.x += dx / distance * amount;
+    player.y += dy / distance * amount;
+    player.x = floatClamp(player.x, 1.5, 118.5);
+    player.y = floatClamp(player.y, 2, 74);
+  }
+
+  function possessionPlayer() {
+    const owner = activeMatch.full.ball.owner;
+    return owner ? fullPlayer(owner.side, owner.index) : null;
+  }
+
+  function nearestPlayer(side, point, excludeGoalkeeper) {
+    let best = null;
+    let bestDistance = Infinity;
+    activeMatch.full[side].forEach((player, index) => {
+      if (excludeGoalkeeper && index === 0) return;
+      const distance = distanceBetween(player, point);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = player;
+      }
+    });
+    return best;
+  }
+
+  function givePossession(player) {
+    const full = activeMatch.full;
+    full.ball.owner = { side: player.side, index: player.index };
+    full.ball.target = null;
+    full.ball.shot = false;
+    full.ball.vx = 0;
+    full.ball.vy = 0;
+    full.lastTouch = { side: player.side, index: player.index };
+  }
+
+  function releaseBall(player, targetX, targetY, speed, target, shot) {
+    const full = activeMatch.full;
+    const dx = targetX - player.x;
+    const dy = targetY - player.y;
+    const distance = Math.max(0.1, Math.hypot(dx, dy));
+    full.ball.owner = null;
+    full.ball.x = player.x;
+    full.ball.y = player.y;
+    full.ball.vx = dx / distance * speed;
+    full.ball.vy = dy / distance * speed;
+    full.ball.target = target || null;
+    full.ball.shot = Boolean(shot);
+    full.lastTouch = { side: player.side, index: player.index };
+  }
+
+  function choosePassTarget(player, cross) {
+    const full = activeMatch.full;
+    const direction = player.side === 'home' ? 1 : -1;
+    const mates = full[player.side].filter(mate => mate.index !== player.index && mate.index !== 0);
+    if (full.callForPass && player.side === full.userSide) {
+      const user = fullUser();
+      if (distanceBetween(player, user) < 36) {
+        full.callForPass = false;
+        return user;
+      }
+    }
+    return mates.sort((a, b) => {
+      const aForward = direction * (a.x - player.x);
+      const bForward = direction * (b.x - player.x);
+      const aScore = (cross ? Math.abs(a.y - 38) * -0.2 : 0) + aForward * 1.4 - Math.abs(a.y - player.y) * 0.35 - distanceBetween(player, a) * 0.12;
+      const bScore = (cross ? Math.abs(b.y - 38) * -0.2 : 0) + bForward * 1.4 - Math.abs(b.y - player.y) * 0.35 - distanceBetween(player, b) * 0.12;
+      return bScore - aScore;
+    })[0];
+  }
+
+  function passBall(player, target, speed) {
+    if (!target) return;
+    activeMatch.full.lastPasser = { side: player.side, index: player.index };
+    releaseBall(player, target.x, target.y, speed, { side: target.side, index: target.index }, false);
+  }
+
+  function shootBall(player, isUser) {
+    const direction = player.side === 'home' ? 1 : -1;
+    const skill = isUser ? state.career.skills.Finalização : player.overall;
+    const spread = (100 - skill) / 11;
+    const targetY = 38 + (Math.random() - 0.5) * spread;
+    releaseBall(player, direction > 0 ? 124 : -4, targetY, 37 + skill / 12, null, true);
+    activeMatch.stats.shotsFor += player.side === activeMatch.full.userSide ? 1 : 0;
+    activeMatch.stats.shotsAgainst += player.side !== activeMatch.full.userSide ? 1 : 0;
+    activeMatch.full.lastPasser = null;
+    if (isUser) {
+      activeMatch.full.feedback = 'Finalização!';
+      activeMatch.full.rating = floatClamp(activeMatch.full.rating + 0.08, 4, 10);
+    }
+  }
+
+  function resetAfterGoal(concedingSide) {
+    const full = activeMatch.full;
+    full.home.forEach(player => { player.x = player.baseX; player.y = player.baseY; });
+    full.away.forEach(player => { player.x = player.baseX; player.y = player.baseY; });
+    full.ball.x = 60;
+    full.ball.y = 38;
+    full.ball.vx = 0;
+    full.ball.vy = 0;
+    full.ball.owner = null;
+    full.ball.target = null;
+    full.deadFor = 1.4;
+    full.kickoffSide = concedingSide;
+  }
+
+  function scoreFullGoal(scoringSide) {
+    const full = activeMatch.full;
+    const fixture = currentMatchFixture();
+    const scoringIsHome = scoringSide === 'home';
+    if (scoringIsHome) activeMatch.homeGoals++;
+    else activeMatch.awayGoals++;
+
+    const userTouched = full.lastTouch && full.lastTouch.side === full.userSide && full.lastTouch.index === full.userIndex;
+    const userPassed = full.lastPasser && full.lastPasser.side === full.userSide && full.lastPasser.index === full.userIndex;
+    const userTeamScored = scoringSide === full.userSide;
+
+    if (userTeamScored && userTouched) {
+      state.career.goals++;
+      full.rating = floatClamp(full.rating + 1, 4, 10);
+      full.banner = 'GOOOL DO BOLEIRO!';
+      activeMatch.log.push(Math.floor(activeMatch.minute) + "' Gol de " + state.career.name + '!');
+    } else if (userTeamScored && userPassed) {
+      state.career.assists++;
+      full.rating = floatClamp(full.rating + 0.65, 4, 10);
+      full.banner = 'GOL! ASSISTÊNCIA SUA';
+      activeMatch.log.push(Math.floor(activeMatch.minute) + "' Assistência de " + state.career.name + '.');
+    } else {
+      full.banner = userTeamScored ? 'GOOOL!' : 'GOL DO ADVERSÁRIO';
+      activeMatch.log.push(Math.floor(activeMatch.minute) + "' " + (userTeamScored ? 'Gol do nosso time.' : 'Gol do adversário.'));
+      full.rating = floatClamp(full.rating + (userTeamScored ? 0.12 : -0.08), 4, 10);
+    }
+
+    full.feedback = full.banner;
+    full.bannerFor = 1.4;
+    refreshFullHud();
+    resetAfterGoal(scoringSide === 'home' ? 'away' : 'home');
+  }
+
+  function updateFreeBall(dt) {
+    const full = activeMatch.full;
+    const ball = full.ball;
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+    ball.vx *= Math.pow(0.985, dt * 60);
+    ball.vy *= Math.pow(0.985, dt * 60);
+
+    if (ball.target) {
+      const target = fullPlayer(ball.target.side, ball.target.index);
+      if (target && distanceBetween(ball, target) < 2.4) {
+        givePossession(target);
+        return;
+      }
+    }
+
+    const closestHome = nearestPlayer('home', ball, false);
+    const closestAway = nearestPlayer('away', ball, false);
+    const homeDistance = closestHome ? distanceBetween(closestHome, ball) : 99;
+    const awayDistance = closestAway ? distanceBetween(closestAway, ball) : 99;
+    if (Math.min(homeDistance, awayDistance) < 1.35 && !ball.shot) {
+      givePossession(homeDistance < awayDistance ? closestHome : closestAway);
+      return;
+    }
+
+    if ((ball.x > 120 || ball.x < 0) && ball.y > 31 && ball.y < 45) {
+      scoreFullGoal(ball.x > 120 ? 'home' : 'away');
+      return;
+    }
+
+    if (ball.x > 123 || ball.x < -3) {
+      const defendingSide = ball.x > 120 ? 'away' : 'home';
+      givePossession(full[defendingSide][0]);
+      full.ball.x = defendingSide === 'away' ? 116 : 4;
+      full.ball.y = 38;
+      full.feedback = 'Tiro de meta.';
+    }
+
+    if (ball.y < 0 || ball.y > 76) {
+      ball.y = floatClamp(ball.y, 1, 75);
+      ball.vy *= -0.45;
+      full.feedback = 'A bola saiu pela lateral.';
+    }
+  }
+
+  function updateUser(dt) {
+    const full = activeMatch.full;
+    const user = fullUser();
+    let dx = 0;
+    let dy = 0;
+    if (keys.left || keys.ArrowLeft || keys.a) dx--;
+    if (keys.right || keys.ArrowRight || keys.d) dx++;
+    if (keys.up || keys.ArrowUp || keys.w) dy--;
+    if (keys.down || keys.ArrowDown || keys.s) dy++;
+
+    const usingKeys = dx || dy;
+    if (!usingKeys && full.targetX !== null && full.targetY !== null) {
+      dx = full.targetX - user.x;
+      dy = full.targetY - user.y;
+      if (Math.hypot(dx, dy) < 1) {
+        full.targetX = null;
+        full.targetY = null;
+        dx = 0;
+        dy = 0;
+      }
+    }
+
+    if (dx || dy) {
+      const distance = Math.max(0.1, Math.hypot(dx, dy));
+      const energyFactor = 0.62 + full.stamina / 260;
+      const speed = (7.2 + state.career.skills.Velocidade / 18) * energyFactor;
+      user.x += dx / distance * speed * dt;
+      user.y += dy / distance * speed * dt;
+      user.x = floatClamp(user.x, 1.5, 118.5);
+      user.y = floatClamp(user.y, 2, 74);
+      user.vx = dx / distance * speed;
+      user.vy = dy / distance * speed;
+      full.stamina = floatClamp(full.stamina - 1.25 * dt, 0, 100);
+    } else {
+      user.vx *= 0.8;
+      user.vy *= 0.8;
+      full.stamina = floatClamp(full.stamina + 0.28 * dt, 0, 100);
+    }
+
+    full.positionTimer += dt;
+    if (full.positionTimer > 5.5) {
+      full.positionTimer = 0;
+      const ballShift = (full.ball.x - 60) * 0.18;
+      const preferredX = floatClamp(user.baseX + ballShift, 10, 110);
+      const preferredY = floatClamp(user.baseY + (full.ball.y - 38) * 0.12, 6, 70);
+      const positionalDistance = Math.hypot(user.x - preferredX, user.y - preferredY);
+      if (positionalDistance < 12) {
+        full.feedback = 'Bom posicionamento!';
+        full.rating = floatClamp(full.rating + 0.04, 4, 10);
+      } else {
+        full.feedback = 'Volte para sua posição.';
+        full.rating = floatClamp(full.rating - 0.025, 4, 10);
+      }
+    }
+  }
+
+  function updateAI(dt) {
+    const full = activeMatch.full;
+    const owner = possessionPlayer();
+    const ownerSide = owner?.side || null;
+    const ballPoint = owner || full.ball;
+    const defendingSide = ownerSide === 'home' ? 'away' : ownerSide === 'away' ? 'home' : null;
+    const chaser = defendingSide ? nearestPlayer(defendingSide, ballPoint, true) : null;
+
+    ['home', 'away'].forEach(side => {
+      const direction = side === 'home' ? 1 : -1;
+      full[side].forEach(player => {
+        const controlled = side === full.userSide && player.index === full.userIndex;
+        if (controlled) return;
+
+        player.decision -= dt;
+        if (owner === player) {
+          const distanceToGoal = direction > 0 ? 120 - player.x : player.x;
+          moveTowards(player, player.x + direction * 10, 38 + (player.baseY - 38) * 0.35, 7.5, dt);
+          if (distanceToGoal < 27 && player.decision <= 0) {
+            shootBall(player, false);
+            player.decision = 1.4;
+          } else if (player.decision <= 0) {
+            const target = choosePassTarget(player, false);
+            if (target && (Math.random() < 0.68 || full.callForPass)) passBall(player, target, 24);
+            player.decision = 0.8 + Math.random() * 1.3;
+          }
+          return;
+        }
+
+        let targetX = player.baseX + (full.ball.x - 60) * (side === ownerSide ? 0.28 : 0.18);
+        let targetY = player.baseY + (full.ball.y - 38) * 0.18;
+
+        if (player === chaser) {
+          targetX = ballPoint.x;
+          targetY = ballPoint.y;
+        } else if (side === ownerSide && player.index > 4) {
+          targetX += direction * 7;
+        }
+
+        moveTowards(player, floatClamp(targetX, 3, 117), floatClamp(targetY, 3, 73), player.index === 0 ? 5.5 : 6.5 + player.overall / 35, dt);
+      });
+    });
+
+    const currentOwner = possessionPlayer();
+    if (currentOwner) {
+      const opponentSide = currentOwner.side === 'home' ? 'away' : 'home';
+      const tackler = nearestPlayer(opponentSide, currentOwner, true);
+      if (tackler && distanceBetween(tackler, currentOwner) < 1.7 && Math.random() < dt * 0.34) {
+        givePossession(tackler);
+        if (tackler.side === full.userSide) activeMatch.stats.tackles++;
+      }
+    }
+  }
+
+  function updateFullCamera(width, height) {
+    const full = activeMatch.full;
+    const user = fullUser();
+    const focusX = full.ball.x * 0.62 + user.x * 0.38;
+    const focusY = full.ball.y * 0.62 + user.y * 0.38;
+    const viewW = 84;
+    const viewH = viewW * height / width;
+    const wantedLeft = floatClamp(focusX - viewW / 2, -4, 124 - viewW);
+    const wantedTop = floatClamp(focusY - viewH / 2, -3, 79 - viewH);
+    full.camera.left += (wantedLeft - full.camera.left) * 0.08;
+    full.camera.top += (wantedTop - full.camera.top) * 0.08;
+    full.camera.viewW = viewW;
+    full.camera.viewH = viewH;
+  }
+
+  function refreshFullHud() {
+    if (!activeMatch?.full) return;
+    const fixture = currentMatchFixture();
+    const title = box.querySelector('.modalHead h2');
+    const subtitle = box.querySelector('.modalHead .mut');
+    const rating = box.querySelector('[data-full-rating]');
+    const stamina = box.querySelector('[data-full-stamina]');
+    const feedback = box.querySelector('[data-full-feedback]');
+    if (title) title.textContent = team(fixture.home).name + ' ' + activeMatch.homeGoals + ' x ' + activeMatch.awayGoals + ' ' + team(fixture.away).name;
+    if (subtitle) subtitle.textContent = fixture.competition + ' • ' + Math.floor(activeMatch.minute) + "' • Completo";
+    if (rating) rating.textContent = activeMatch.full.rating.toFixed(1).replace('.', ',');
+    if (stamina) stamina.textContent = Math.round(activeMatch.full.stamina) + '%';
+    if (feedback) feedback.textContent = activeMatch.full.feedback;
   }
 
   function drawFullMode(ctx, width, height) {
     const full = activeMatch.full;
+    updateFullCamera(width, height);
+    const camera = full.camera;
+    const sx = x => (x - camera.left) / camera.viewW * width;
+    const sy = y => (y - camera.top) / camera.viewH * height;
+    const scaleX = width / camera.viewW;
+    const scaleY = height / camera.viewH;
 
-    const drawPlayer = (x, y, label, color) => {
+    ctx.fillStyle = '#2c921f';
+    ctx.fillRect(0, 0, width, height);
+    for (let stripe = -2; stripe < 16; stripe++) {
+      ctx.fillStyle = stripe % 2 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.035)';
+      ctx.fillRect(sx(stripe * 10), 0, 10 * scaleX, height);
+    }
+
+    ctx.strokeStyle = 'rgba(255,255,255,.86)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(sx(0), sy(0), 120 * scaleX, 76 * scaleY);
+    ctx.beginPath();
+    ctx.moveTo(sx(60), sy(0));
+    ctx.lineTo(sx(60), sy(76));
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(sx(60), sy(38), 9.15 * scaleX, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeRect(sx(0), sy(18), 18 * scaleX, 40 * scaleY);
+    ctx.strokeRect(sx(102), sy(18), 18 * scaleX, 40 * scaleY);
+    ctx.strokeRect(sx(0), sy(30), 6 * scaleX, 16 * scaleY);
+    ctx.strokeRect(sx(114), sy(30), 6 * scaleX, 16 * scaleY);
+
+    function drawPlayer(player, color, shorts) {
+      const x = sx(player.x);
+      const y = sy(player.y);
+      ctx.fillStyle = 'rgba(0,0,0,.22)';
+      ctx.beginPath();
+      ctx.ellipse(x + 3, y + 6, 8, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(x * width / 100, y * height / 100, 13, 0, Math.PI * 2);
+      ctx.arc(x, y, 9, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#06110b';
-      ctx.font = 'bold 11px system-ui';
-      ctx.fillText(label, x * width / 100 - 6, y * height / 100 + 4);
-    };
+      ctx.fillStyle = shorts;
+      ctx.fillRect(x - 7, y + 4, 14, 6);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 9px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(player.index + 1), x, y + 3);
+    }
 
-    full.teammates.forEach(point => drawPlayer(point[0], point[1], point[2], '#dfffe8'));
-    full.opponents.forEach(point => drawPlayer(point[0], point[1], point[2], '#ffd166'));
+    full.home.forEach(player => drawPlayer(player, '#176fdb', '#f2f6ff'));
+    full.away.forEach(player => drawPlayer(player, '#e33b32', '#201c24'));
 
-    drawPlayer(full.playerX, full.playerY, 'EU', '#55e58f');
+    const user = fullUser();
+    const ux = sx(user.x);
+    const uy = sy(user.y);
+    ctx.strokeStyle = '#dbff6b';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(ux, uy, 13, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#dbff6b';
+    ctx.beginPath();
+    ctx.moveTo(ux, uy - 24);
+    ctx.lineTo(ux - 7, uy - 34);
+    ctx.lineTo(ux + 7, uy - 34);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.65)';
+    ctx.fillRect(ux - 18, uy - 46, 36, 5);
+    ctx.fillStyle = full.stamina > 30 ? '#dbff6b' : '#ff6b6b';
+    ctx.fillRect(ux - 18, uy - 46, 36 * full.stamina / 100, 5);
 
+    const ballX = sx(full.ball.x);
+    const ballY = sy(full.ball.y);
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.beginPath();
+    ctx.arc(ballX + 3, ballY + 4, 5, 0, Math.PI * 2);
+    ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.beginPath();
-    ctx.arc(full.ballX * width / 100, full.ballY * height / 100, 8, 0, Math.PI * 2);
+    ctx.arc(ballX, ballY, 5, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(5,18,9,.82)';
+    ctx.fillRect(14, 14, 230, 52);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 15px system-ui';
+    ctx.fillText(activeMatch.homeGoals + '  ' + team(currentMatchFixture().home).name.slice(0, 11), 26, 35);
+    ctx.fillText(activeMatch.awayGoals + '  ' + team(currentMatchFixture().away).name.slice(0, 11), 26, 56);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#dbff6b';
+    ctx.fillText(Math.floor(activeMatch.minute) + "'", 231, 47);
+
+    if (full.bannerFor > 0) {
+      ctx.fillStyle = 'rgba(4,16,8,.78)';
+      ctx.fillRect(0, height / 2 - 48, width, 96);
+      ctx.fillStyle = '#dbff6b';
+      ctx.font = '900 42px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(full.banner, width / 2, height / 2 + 14);
+    }
+
+    const mapW = 150;
+    const mapH = 82;
+    const mapX = width - mapW - 14;
+    const mapY = 14;
+    ctx.fillStyle = 'rgba(4,16,8,.72)';
+    ctx.fillRect(mapX, mapY, mapW, mapH);
+    ctx.strokeStyle = 'rgba(255,255,255,.55)';
+    ctx.strokeRect(mapX + 4, mapY + 4, mapW - 8, mapH - 8);
+    full.home.forEach(player => { ctx.fillStyle = '#69a8ff'; ctx.fillRect(mapX + 4 + player.x / 120 * (mapW - 8) - 2, mapY + 4 + player.y / 76 * (mapH - 8) - 2, 4, 4); });
+    full.away.forEach(player => { ctx.fillStyle = '#ff766f'; ctx.fillRect(mapX + 4 + player.x / 120 * (mapW - 8) - 2, mapY + 4 + player.y / 76 * (mapH - 8) - 2, 4, 4); });
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(mapX + 4 + full.ball.x / 120 * (mapW - 8) - 2, mapY + 4 + full.ball.y / 76 * (mapH - 8) - 2, 5, 5);
   }
 
-  function fullLoop() {
-    if (!activeMatch || activeMatch.mode !== 'completo') return;
+  function fullLoop(timestamp) {
+    if (!activeMatch || activeMatch.mode !== 'completo' || !activeMatch.full?.ready) return;
+    const full = activeMatch.full;
+    if (!full.lastTime) full.lastTime = timestamp || performance.now();
+    const now = timestamp || performance.now();
+    const dt = Math.min(0.035, Math.max(0.001, (now - full.lastTime) / 1000));
+    full.lastTime = now;
 
     if (!activeMatch.paused) {
-      const full = activeMatch.full;
-      const speed = 0.52 + state.career.skills.Velocidade / 320;
-
-      if (keys.left || keys.ArrowLeft || keys.a) full.playerX -= speed;
-      if (keys.right || keys.ArrowRight || keys.d) full.playerX += speed;
-      if (keys.up || keys.ArrowUp || keys.w) full.playerY -= speed;
-      if (keys.down || keys.ArrowDown || keys.s) full.playerY += speed;
-
-      full.playerX = clamp(full.playerX, 5, 95);
-      full.playerY = clamp(full.playerY, 8, 92);
-      full.stamina = clamp(full.stamina - 0.03, 0, 100);
-
-      if (full.possession === 'user') {
-        full.ballX = full.playerX + 2;
-        full.ballY = full.playerY;
+      if (full.deadFor > 0) {
+        full.deadFor -= dt;
+        if (full.deadFor <= 0) givePossession(full[full.kickoffSide][9]);
       } else {
-        full.aiTicks++;
-        full.ballX = clamp(full.ballX + (Math.random() - 0.45) * 1.8, 5, 95);
-        full.ballY = clamp(full.ballY + (Math.random() - 0.5) * 2.2, 8, 92);
-
-        if (full.aiTicks % 90 === 0) {
-          const fixture = currentMatchFixture();
-          const isHome = fixture.home === state.user.teamId;
-          if (Math.random() < 0.33) {
-            isHome ? activeMatch.awayGoals++ : activeMatch.homeGoals++;
-            activeMatch.stats.shotsAgainst++;
-            activeMatch.log.push(`${Math.floor(activeMatch.minute)}' O adversário encontrou espaço e marcou.`);
-          } else {
-            activeMatch.stats.tackles++;
-            activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Você recompôs e recuperou a bola.`);
-          }
-          full.possession = 'user';
-          full.ballX = full.playerX;
-          full.ballY = full.playerY;
+        updateUser(dt);
+        updateAI(dt);
+        if (full.ball.owner) {
+          const owner = possessionPlayer();
+          full.ball.x = owner.x;
+          full.ball.y = owner.y;
+          full.ball.owner.side === 'home' ? full.possessionHome += dt : full.possessionAway += dt;
+        } else {
+          updateFreeBall(dt);
         }
       }
 
-      activeMatch.minute += 0.025;
+      if (full.bannerFor > 0) full.bannerFor -= dt;
+      activeMatch.minute += dt * 0.52;
+      const totalPossession = full.possessionHome + full.possessionAway;
+      if (totalPossession > 0) {
+        const userPossession = full.userSide === 'home' ? full.possessionHome : full.possessionAway;
+        activeMatch.stats.possession = clamp(userPossession / totalPossession * 100, 1, 99);
+      }
+
+      full.feedbackTimer += dt;
+      if (full.feedbackTimer > 0.25) {
+        full.feedbackTimer = 0;
+        refreshFullHud();
+      }
+
       if (activeMatch.minute >= 90) {
         finishMatch();
         return;
@@ -1545,83 +2039,74 @@
   }
 
   function fullAction(action) {
-    if (!activeMatch || activeMatch.mode !== 'completo') return;
-
+    if (!activeMatch || activeMatch.mode !== 'completo' || !activeMatch.full?.ready || activeMatch.paused) return;
     const full = activeMatch.full;
-    const fixture = currentMatchFixture();
-    const isHome = fixture.home === state.user.teamId;
+    const user = fullUser();
+    const owner = possessionPlayer();
+    const userHasBall = owner === user;
 
     if (action === 'tackle') {
-      const distance = Math.hypot(full.playerX - full.ballX, full.playerY - full.ballY);
-      if (full.possession !== 'user' || distance < 18) {
-        full.possession = 'user';
-        full.ballX = full.playerX;
-        full.ballY = full.playerY;
-        activeMatch.stats.tackles++;
-        activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Carrinho limpo. Bola nossa.`);
-      } else {
-        activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Carrinho atrasado. Falta perigosa.`);
+      if (userHasBall) {
+        full.feedback = 'Você já está com a bola.';
+        return refreshFullHud();
       }
-      renderMatchShell();
-      return;
+      if (owner && owner.side !== full.userSide && distanceBetween(user, owner) < 3.2) {
+        const chance = 0.38 + state.career.skills.Defesa / 180;
+        if (Math.random() < chance) {
+          givePossession(user);
+          activeMatch.stats.tackles++;
+          full.rating = floatClamp(full.rating + 0.18, 4, 10);
+          full.feedback = 'Desarme limpo!';
+          activeMatch.log.push(Math.floor(activeMatch.minute) + "' Desarme de " + state.career.name + '.');
+        } else {
+          full.stamina = floatClamp(full.stamina - 4, 0, 100);
+          full.rating = floatClamp(full.rating - 0.08, 4, 10);
+          full.feedback = 'Carrinho atrasado. Falta.';
+        }
+      } else {
+        full.feedback = 'Chegue mais perto para desarmar.';
+      }
+      return refreshFullHud();
     }
 
-    if (full.possession !== 'user') {
-      activeMatch.log.push('Sem a bola. Tente roubar primeiro.');
-      renderMatchShell();
-      return;
+    if (!userHasBall) {
+      if (action === 'pass') {
+        full.callForPass = true;
+        full.feedback = 'Você pediu a bola.';
+      } else {
+        full.feedback = 'Você está sem a bola.';
+      }
+      return refreshFullHud();
     }
 
     if (action === 'shoot') {
-      const chance = 0.22 + state.career.skills.Finalização / 175 + (full.playerX > 70 ? 0.20 : 0) - Math.abs(full.playerY - 50) / 180;
-      activeMatch.stats.shotsFor++;
-      if (Math.random() < chance) {
-        isHome ? activeMatch.homeGoals++ : activeMatch.awayGoals++;
-        state.career.goals++;
-        activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Chute forte. GOOOL!`);
-      } else {
-        activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Chute para fora.`);
-      }
-      full.possession = 'opponent';
+      shootBall(user, true);
+      full.stamina = floatClamp(full.stamina - 3, 0, 100);
     }
 
     if (action === 'pass') {
-      const chance = 0.48 + state.career.skills.Passe / 230;
-      activeMatch.stats.passes++;
-      if (Math.random() < chance) {
-        full.playerX = clamp(full.playerX + 12, 5, 92);
-        full.ballX = full.playerX;
-        activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Passe bom. O time avançou.`);
-      } else {
-        full.possession = 'opponent';
-        activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Passe interceptado.`);
-      }
+      const target = choosePassTarget(user, false);
+      passBall(user, target, 27 + state.career.skills.Passe / 14);
+      full.feedback = target ? 'Passe para ' + target.name + '.' : 'Sem opção de passe.';
+      if (target) full.rating = floatClamp(full.rating + 0.03, 4, 10);
     }
 
     if (action === 'cross') {
-      const flankBonus = full.playerY < 26 || full.playerY > 74 ? 0.24 : -0.05;
-      const chance = 0.32 + state.career.skills.Passe / 260 + flankBonus;
-      activeMatch.stats.passes++;
-      if (Math.random() < chance) {
-        isHome ? activeMatch.homeGoals++ : activeMatch.awayGoals++;
-        activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Cruzamento na medida. Gol!`);
-      } else {
-        activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Cruzamento cortado.`);
-      }
-      full.possession = 'opponent';
+      const target = choosePassTarget(user, true);
+      passBall(user, target, 30 + state.career.skills.Passe / 15);
+      full.feedback = target ? 'Cruzamento para a área.' : 'Sem opção para cruzar.';
+      full.stamina = floatClamp(full.stamina - 2, 0, 100);
     }
 
-    state.career.energy = clamp(state.career.energy - 2);
-    renderMatchShell();
+    refreshFullHud();
   }
 
   function finishMatch() {
     stopMatchTimers();
 
     const fixture = currentMatchFixture();
-    const simulated = simulateScore(fixture.home, fixture.away);
-    const homeGoals = Math.max(activeMatch.homeGoals, simulated[0]);
-    const awayGoals = Math.max(activeMatch.awayGoals, simulated[1]);
+    const homeGoals = activeMatch.homeGoals;
+    const awayGoals = activeMatch.awayGoals;
 
     applyResult(fixture, homeGoals, awayGoals);
 
@@ -1739,7 +2224,7 @@
         <div class="grid">
           <div class="card"><h3>1. Escolha o clube</h3><p class="mut">Por divisão, ordem alfabética e busca.</p></div>
           <div class="card"><h3>2. Prepare</h3><p class="mut">Treino, escalação, tática e mercado.</p></div>
-          <div class="card"><h3>3. Jogue</h3><p class="mut">Momentos, técnico ou completo.</p></div>
+          <div class="card"><h3>3. Jogue</h3><p class="mut">Escolha Técnico para comandar ou Completo para controlar o Boleiro.</p></div>
           <div class="card"><h3>4. Evolua</h3><p class="mut">Finanças, carreira e competições.</p></div>
         </div>`;
       return;
@@ -1777,7 +2262,7 @@
     }
 
     if (data.mode) {
-      state.matchMode = data.mode;
+      state.matchMode = data.mode === 'completo' ? 'completo' : 'tecnico';
       if (!activeMatch) return render();
     }
 
@@ -1816,6 +2301,7 @@
 
     if (data.close) {
       stopMatchTimers();
+      box.classList.remove('completeMatch');
       modal.classList.remove('open');
       return render();
     }
@@ -1830,6 +2316,15 @@
       return;
     }
 
+    if (data.match === 'kickoff' && activeMatch?.mode === 'completo' && activeMatch.full) {
+      activeMatch.full.ready = true;
+      activeMatch.full.lastTime = performance.now();
+      activeMatch.log.push('Apito inicial. Você controla apenas o Boleiro.');
+      renderMatchShell();
+      fullLoop();
+      return;
+    }
+
     if (data.match === 'pause' && activeMatch) {
       activeMatch.paused = !activeMatch.paused;
       renderMatchShell();
@@ -1837,7 +2332,6 @@
     }
 
     if (data.match === 'finish' && activeMatch) return finishMatch();
-    if (data.moment && activeMatch) return handleMoment(data.moment);
 
     if (data.coach && activeMatch) {
       if (data.coach === 'sub') {
@@ -1933,9 +2427,10 @@
       drawMatch();
     }
 
-    if (activeMatch.mode === 'completo' && activeMatch.full) {
-      activeMatch.full.playerX = x;
-      activeMatch.full.playerY = y;
+    if (activeMatch.mode === 'completo' && activeMatch.full?.ready) {
+      const camera = activeMatch.full.camera;
+      activeMatch.full.targetX = camera.left + x / 100 * camera.viewW;
+      activeMatch.full.targetY = camera.top + y / 100 * camera.viewH;
       drawMatch();
     }
   });
