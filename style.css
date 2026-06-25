@@ -45,3 +45,24 @@ canvas{width:100%;height:520px;background:#176b34;border-radius:22px;border:1px 
 @media(max-width:900px){body{font-size:15px}.shell{display:block}.side{display:none}.main{padding:10px 10px 96px}.grid,.g3,.g4,.setupGrid,.statGrid{grid-template-columns:1fr}.hud{justify-content:flex-start}.pageHead,.sectionHead,.modalHead,.matchHeader{align-items:flex-start}.actionbar{justify-content:stretch}.actionbar button{flex:1}.compact select{width:100%}select[size]{min-height:280px}.bottom{display:grid;position:fixed;left:0;right:0;bottom:0;grid-template-columns:repeat(5,1fr);background:rgba(6,17,11,.97);border-top:1px solid rgba(255,255,255,.10);z-index:30;padding-bottom:env(safe-area-inset-bottom)}.bottom button{border:0;border-radius:0;background:transparent;font-size:11px;padding:10px 4px}.field{height:305px}.box{padding:10px;border-radius:18px;max-height:97vh}.matchHeader h2{font-size:19px}.matchControlBar{position:sticky;bottom:0;z-index:5;margin-top:8px;padding:10px}.matchActions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.matchActions button{width:100%;font-size:13px;padding:8px 6px}.matchActions button:nth-child(4),.matchActions button:nth-child(5){grid-column:span 1}.choiceGrid{grid-template-columns:repeat(2,1fr)}.choiceGrid button{min-height:70px}.touch{grid-template-columns:1fr}.actBtns{grid-template-columns:repeat(2,1fr)}.dpad{grid-template-columns:repeat(3,58px);justify-content:center}.dpad button{min-height:48px}.hero{padding:12px}.hero .panel{padding:15px}.hero h1{font-size:62px}.lead{font-size:16px}canvas{height:56vh;min-height:360px;max-height:560px;border-radius:18px}th:nth-child(7),td:nth-child(7),th:nth-child(8),td:nth-child(8){display:none}}
 @media(max-width:420px){.matchActions{grid-template-columns:repeat(2,1fr)}.choiceGrid{grid-template-columns:1fr}.score{font-size:30px}canvas{height:52vh;min-height:330px}.box{padding:8px}.matchSide{padding:10px}.card,.panel{padding:13px}}
 .matchControlBar .card .actionbar{display:grid;grid-template-columns:repeat(4,1fr);justify-content:stretch;gap:8px}.matchControlBar .card .actionbar button{text-align:left;min-height:72px}.matchControlBar .card .actionbar button b{display:block}.matchControlBar .card .actionbar button span{display:block;color:var(--muted);font-size:12px;margin-top:4px}@media(max-width:900px){.matchControlBar .card .actionbar{grid-template-columns:repeat(2,1fr)}.matchControlBar .card .actionbar button{min-height:68px}}@media(max-width:420px){.matchControlBar .card .actionbar{grid-template-columns:1fr}}
+
+/* Matchday v2: locked, realistic flow for Coach and Complete modes. */
+.liveMatchTag{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:#8f1919;color:#fff;font-size:12px;font-weight:900;letter-spacing:.08em}
+.liveMatchTag:before{content:"";width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.14)}
+.coachMatchCenter{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr);gap:14px;min-height:390px}
+.coachEvents,.coachStats{background:#08140e;border:1px solid var(--line);border-radius:18px;padding:16px}
+.coachEvents h3,.coachStats h3{margin:0 0 12px}
+.coachEvents .stack{max-height:330px;overflow:auto}
+.matchStatHeader,.matchStatRow{display:grid;grid-template-columns:minmax(80px,1fr) minmax(120px,1.2fr) minmax(80px,1fr);align-items:center;gap:8px;text-align:center}
+.matchStatHeader{padding:0 8px 10px;color:#fff;font-size:12px}
+.matchStatHeader b:first-child,.matchStatRow b:first-child{text-align:left}
+.matchStatHeader b:last-child,.matchStatRow b:last-child{text-align:right}
+.matchStatHeader span{color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-size:10px}
+.matchStatRow{padding:10px 8px;border-top:1px solid rgba(255,255,255,.08)}
+.matchStatRow span{color:var(--muted);font-size:13px}
+.matchStatRow b{font-size:17px;color:#dbff6b}
+.lockedMode{display:inline-flex;align-items:center;padding:9px 12px;border-radius:12px;background:#10251a;border:1px solid #356b4f;color:#dbff6b;font-weight:850}
+.coachMatchCenter + .matchControlBar{position:static}
+.coachControls{margin-top:8px}
+.coachControls .actionbar button{min-height:48px;text-align:center}
+@media(max-width:800px){.coachMatchCenter{grid-template-columns:1fr;min-height:0}.coachEvents .stack{max-height:210px}.coachStats{padding:12px}.matchStatHeader,.matchStatRow{grid-template-columns:minmax(64px,1fr) minmax(108px,1.2fr) minmax(64px,1fr)}.coachMatchCenter + .matchControlBar{position:sticky;bottom:0}}
