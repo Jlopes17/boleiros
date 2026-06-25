@@ -378,6 +378,8 @@
         matches: 0
       },
       matchMode: 'tecnico',
+      lastTrainingWeek: 0,
+      lastLifeWeek: 0,
       preparation: { training: false, lineup: false, tactics: false, market: false },
       news: ['Temporada criada. O universo sul-americano está pronto.'],
       achievements: [],
@@ -395,6 +397,8 @@
     if (!raw) return null;
     if (raw.version === 8 && raw.teams && raw.fixtures) {
       if (!['tecnico', 'completo'].includes(raw.matchMode)) raw.matchMode = 'tecnico';
+      raw.lastTrainingWeek = raw.lastTrainingWeek || 0;
+      raw.lastLifeWeek = raw.lastLifeWeek || 0;
       return raw;
     }
 
@@ -976,11 +980,12 @@
     },
 
     treino() {
+      const trained = state.lastTrainingWeek === state.week;
       return `
         <section class="panel">
           <div class="sectionHead">
             <div><h2>Treino da semana</h2><p class="mut">Controle evolução e fadiga.</p></div>
-            <button class="pri" data-action="train">Aplicar treino</button>
+            <button class="pri" data-action="train" ${trained ? 'disabled' : ''}>${trained ? 'Treino concluído' : 'Aplicar treino'}</button>
           </div>
           <div class="g3">
             <div class="fieldBlock"><label>Foco coletivo</label><select data-training="focus">${['Equilibrado','Finalização','Defesa','Físico','Posse de bola'].map(item => `<option ${state.training.focus === item ? 'selected' : ''}>${item}</option>`).join('')}</select></div>
@@ -1101,6 +1106,7 @@
 
     carreira() {
       const career = state.career;
+      const lifeDone = state.lastLifeWeek === state.week;
       return `
         <section class="panel">
           <h2>${career.name}</h2>
@@ -1119,11 +1125,12 @@
             <div class="card">
               <h3>Vida fora de campo</h3>
               <div class="actionbar">
-                <button data-life="rest">Descansar</button>
-                <button data-life="boot">Comprar chuteira</button>
-                <button data-life="media">Dar entrevista</button>
-                <button data-life="night">Sair à noite</button>
+                <button data-life="rest" ${lifeDone ? 'disabled' : ''}>Descansar</button>
+                <button data-life="boot" ${lifeDone ? 'disabled' : ''}>Comprar chuteira</button>
+                <button data-life="media" ${lifeDone ? 'disabled' : ''}>Dar entrevista</button>
+                <button data-life="night" ${lifeDone ? 'disabled' : ''}>Sair à noite</button>
               </div>
+              <p class="mut mini">${lifeDone ? 'Ação semanal concluída. A próxima fica disponível depois da partida.' : 'Escolha uma ação para esta semana.'}</p>
             </div>
           </div>
         </section>`;
@@ -2247,6 +2254,10 @@
   }
 
   function train(silent = false) {
+    if (!silent && state.lastTrainingWeek === state.week) {
+      showToast('O treino desta semana já foi concluído');
+      return;
+    }
     const intensity = state.training.intensity;
     const rest = state.training.rest;
 
@@ -2268,6 +2279,7 @@
 
     state.career.energy = clamp(state.career.energy + (rest - 35) / 4 - (intensity - 50) / 8);
     state.preparation.training = true;
+    state.lastTrainingWeek = state.week;
     if (!silent) showToast('Treino aplicado');
   }
 
@@ -2372,11 +2384,14 @@
     }
 
     if (data.life) {
+      if (state.lastLifeWeek === state.week) return showToast('Você já fez uma ação fora de campo nesta semana');
       const career = state.career;
+      if (data.life === 'boot' && career.cash < 500) return showToast('Grana insuficiente para a chuteira');
       if (data.life === 'rest') career.energy = clamp(career.energy + 18);
       if (data.life === 'boot' && career.cash >= 500) { career.cash -= 500; career.skills.Finalização = clamp(career.skills.Finalização + 2); }
       if (data.life === 'media') { career.fame = clamp(career.fame + 4); career.relationships.Mídia = clamp(career.relationships.Mídia + 8); }
       if (data.life === 'night') { career.happiness = clamp(career.happiness + 12); career.energy = clamp(career.energy - 16); }
+      state.lastLifeWeek = state.week;
       return render();
     }
 
