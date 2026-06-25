@@ -149,14 +149,18 @@
     const state = loadState();
     const current = currentFixture(state);
     const info = modalInfo(box, state, current);
-    box.classList.add('bf-enhanced', `bf-mode-${info.mode}`);
-    box.classList.remove('bf-mode-momentos','bf-mode-tecnico','bf-mode-completo');
-    box.classList.add(`bf-mode-${info.mode}`);
     const old = box.querySelector('[data-bf-board]');
-    const html = buildBoard(box);
-    if (!html) return;
-    if (old) old.outerHTML = html;
-    else box.insertAdjacentHTML('afterbegin', html);
+    if (info.mode !== 'tecnico') {
+      old?.remove();
+      box.classList.remove('bf-enhanced','bf-mode-momentos','bf-mode-tecnico','bf-mode-completo');
+      return;
+    }
+    box.classList.add('bf-enhanced', 'bf-mode-tecnico');
+    box.classList.remove('bf-mode-momentos','bf-mode-completo');
+    const boardHtml = buildBoard(box);
+    if (!boardHtml) return;
+    if (old) old.outerHTML = boardHtml;
+    else box.insertAdjacentHTML('afterbegin', boardHtml);
   }
 
   const observer = new MutationObserver(() => requestAnimationFrame(enhance));
