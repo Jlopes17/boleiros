@@ -33,7 +33,7 @@
     },
     'Central da partida': {
       what: 'Escolha como jogar a partida.',
-      do: 'Para estilo Brasfoot, use Técnico. Para jogar rápido, use Momentos. Para ação, use Completo.'
+      do: 'Use Técnico para comandar o time ou Completo para controlar apenas o Boleiro em campo.'
     },
     'Mercado': {
       what: 'Contrate reforços ou venda jogadores para equilibrar o caixa.',
@@ -70,9 +70,8 @@
     ['Folha', 'Total de salários. Pode quebrar o caixa se ficar alta demais.'],
     ['Mentalidade', 'Define risco. Ofensiva cria mais, defensiva protege mais.'],
     ['Pressão', 'Alta recupera mais bola, mas cansa mais.'],
-    ['Momentos', 'Você decide só os lances principais.'],
-    ['Técnico', 'Modo mais parecido com Brasfoot. Simulação com ajustes.'],
-    ['Completo', 'Modo jogável top-view com ações do Boleiro.']
+    ['Técnico', 'Modo de treinador. A partida é simulada com ajustes táticos.'],
+    ['Completo', 'Partida contínua em visão superior. Você controla somente o Boleiro.']
   ];
 
   function injectStyles() {
@@ -150,7 +149,7 @@
       guide.innerHTML = `
         <div><span class="ux-help-chip">Matchday</span></div>
         <p><strong>Como ler:</strong> placar no topo, minuto logo abaixo, campo no centro, ações embaixo e narração/estatísticas ao lado.</p>
-        <p><strong>Dica:</strong> no modo Técnico, pause para mudar mentalidade. Aos 45 minutos existe intervalo obrigatório.</p>`;
+        <p><strong>Dica:</strong> no Técnico você ajusta a equipe. No Completo, movimente o Boleiro, peça a bola e participe das jogadas.</p>`;
       const header = box.querySelector('.matchHeader,.modalHead,.row');
       header?.insertAdjacentElement('afterend', guide);
     }
@@ -196,7 +195,7 @@
       <p class="mut">O objetivo é montar um time competitivo, cuidar do caixa e vencer competições.</p>
       <div class="ux-steps">
         <div class="ux-step"><b>1</b><div><b>Prepare o time</b><div class="ux-mini">Elenco, escalação, táticas e treino.</div></div></div>
-        <div class="ux-step"><b>2</b><div><b>Jogue a partida</b><div class="ux-mini">Técnico é o modo principal estilo Brasfoot.</div></div></div>
+        <div class="ux-step"><b>2</b><div><b>Jogue a partida</b><div class="ux-mini">Técnico é o modo de treinador. Completo é a carreira jogável do Boleiro.</div></div></div>
         <div class="ux-step"><b>3</b><div><b>Controle o dinheiro</b><div class="ux-mini">Folha alta e compras ruins quebram o clube.</div></div></div>
         <div class="ux-step"><b>4</b><div><b>Evolua o Boleiro</b><div class="ux-mini">Energia, habilidades e decisões fora de campo importam.</div></div></div>
       </div>
@@ -218,7 +217,7 @@
           <div class="ux-step"><b>1</b><div><b>Painel</b><div class="ux-mini">Veja a próxima partida e alertas.</div></div></div>
           <div class="ux-step"><b>2</b><div><b>Elenco</b><div class="ux-mini">Escolha titulares e veja OV, físico e moral.</div></div></div>
           <div class="ux-step"><b>3</b><div><b>Táticas</b><div class="ux-mini">Defina mentalidade, pressão e ritmo.</div></div></div>
-          <div class="ux-step"><b>4</b><div><b>Partida</b><div class="ux-mini">Jogue no modo Técnico para a experiência mais Brasfoot.</div></div></div>
+          <div class="ux-step"><b>4</b><div><b>Partida</b><div class="ux-mini">Escolha Técnico para comandar ou Completo para controlar o Boleiro.</div></div></div>
         </div>
         <br>
         <div class="actionbar"><button class="ux-skip" type="button">Depois</button><button class="pri" type="button">Entendi</button></div>
