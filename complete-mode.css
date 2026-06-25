@@ -1,0 +1,55 @@
+.completeMatch.box{width:min(1180px,calc(100vw - 18px));max-width:1180px;max-height:96vh;padding:10px;background:#07150c;border:1px solid #2f6f43;overflow:auto}
+.completeMatch .modalHead{margin-bottom:7px}
+.completeMatch .modalHead h2{font-size:clamp(15px,2.1vw,22px);margin:0}
+.completeMatch .timeline{height:5px;margin-bottom:8px}
+.completeMatch .matchLayout{grid-template-columns:minmax(0,1fr) 250px;gap:10px}
+.completeMatch canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;max-height:68vh;background:#2c921f;border:1px solid #64bd55;border-radius:8px;touch-action:none}
+.completeMatch .matchControlBar{position:relative;margin-top:8px;padding:8px;background:#0a1d11;border:1px solid #234d31;border-radius:12px}
+.completeMatch .matchActions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 8px}
+.completeMatch .matchActions button{min-height:38px;padding:8px 10px;border-radius:8px}
+.completeMatch .matchSide{max-height:calc(68vh + 134px);overflow:auto}
+.completeMatch .completeIntro{display:grid;grid-template-columns:minmax(170px,.75fr) minmax(250px,1fr);gap:14px;align-items:center;padding:10px}
+.completeMatch .completeIntro>.wide{grid-column:1/-1}
+.completeMatch .formationPreview{position:relative;min-height:220px;border:2px solid rgba(255,255,255,.68);border-radius:8px;background:linear-gradient(90deg,rgba(255,255,255,.035) 50%,transparent 50%),#208241;background-size:48px 100%;overflow:hidden}
+.completeMatch .formationPreview:before{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.65)}
+.completeMatch .formationPreview span{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;min-width:33px;height:25px;padding:0 5px;border-radius:999px;background:#e9f3ff;color:#08120b;font-size:10px;font-weight:900;border:2px solid #174f9b}
+.completeMatch .formationPreview span.you{background:#dbff6b;border-color:#fff;box-shadow:0 0 0 4px rgba(219,255,107,.28);z-index:2}
+.completeMatch .completeHud{display:grid;grid-template-columns:90px 100px 1fr;gap:7px;margin-bottom:8px}
+.completeMatch .completeHud>div{min-height:42px;padding:7px 10px;border-radius:9px;background:#10271a;border:1px solid #285b3c;display:flex;flex-direction:column;justify-content:center}
+.completeMatch .completeHud span{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#9eb6a6}
+.completeMatch .completeHud b{font-size:17px;color:#dbff6b}
+.completeMatch .completeHud .fullFeedback{color:#fff;font-weight:800}
+.completeMatch .touch{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;align-items:center}
+.completeMatch .dpad{display:grid;grid-template-columns:repeat(3,42px);grid-template-rows:repeat(3,42px);gap:3px;justify-content:center}
+.completeMatch .dpad button,.completeMatch .stickCenter{width:42px;height:42px;padding:0;display:grid;place-items:center;border-radius:10px;user-select:none;-webkit-user-select:none;touch-action:none}
+.completeMatch .stickCenter{background:#13291b;border:1px solid #285b3c;color:#dbff6b}
+.completeMatch .actBtns{display:grid;grid-template-columns:repeat(4,minmax(88px,1fr));gap:7px}
+.completeMatch .actBtns button{min-height:48px;border-radius:10px;font-weight:900;touch-action:manipulation}
+.completeMatch .completeHelp{margin:7px 0 0;text-align:center}
+.completeMatch .bf-board{display:none!important}
+@media(max-width:850px){
+  .completeMatch.box{width:100vw;max-height:100dvh;height:100dvh;border:0;border-radius:0;padding:7px}
+  .completeMatch .matchLayout{grid-template-columns:1fr}
+  .completeMatch .matchSide{display:none}
+  .completeMatch canvas{max-height:none;aspect-ratio:4/3}
+  .completeMatch .completeIntro{grid-template-columns:1fr}
+  .completeMatch .formationPreview{min-height:190px}
+  .completeMatch .touch{grid-template-columns:132px 1fr;gap:8px}
+  .completeMatch .dpad{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(3,38px)}
+  .completeMatch .dpad button,.completeMatch .stickCenter{width:38px;height:38px}
+  .completeMatch .actBtns{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .completeMatch .actBtns button{min-height:52px}
+}
+@media(max-width:520px){
+  .completeMatch .modalHead{gap:5px}
+  .completeMatch .modalHead p{font-size:11px}
+  .completeMatch .timeline{display:none}
+  .completeMatch .matchActions{grid-template-columns:repeat(4,1fr)}
+  .completeMatch .matchActions button{padding:6px 3px;font-size:11px;min-height:34px}
+  .completeMatch .completeHud{grid-template-columns:62px 72px 1fr}
+  .completeMatch .completeHud>div{padding:5px 7px;min-height:37px}
+  .completeMatch .completeHud b{font-size:14px}
+  .completeMatch .completeHud .fullFeedback{font-size:12px}
+  .completeMatch .touch{grid-template-columns:122px 1fr}
+  .completeMatch .completeHelp{display:none}
+}
