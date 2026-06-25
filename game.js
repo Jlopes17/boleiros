@@ -1,8 +1,8 @@
 'use strict';
 
 (() => {
-  const SAVE_KEY = 'boleiros_save_v8';
-  const LEGACY_KEYS = ['boleiros_save_v7', 'boleiros_live_v6', 'boleiros_ux_v5', 'boleiros_ux_v4', 'boleiros_ux_v3', 'boleiros_v1'];
+  const SAVE_KEY = 'boleiros_save_v9';
+  const LEGACY_KEYS = ['boleiros_save_v8', 'boleiros_save_v7', 'boleiros_live_v6', 'boleiros_ux_v5', 'boleiros_ux_v4', 'boleiros_ux_v3', 'boleiros_v1'];
 
   const app = document.getElementById('app');
   const modal = document.getElementById('modal');
@@ -71,7 +71,7 @@
     SE: 'Sergipano Boleiros'
   };
 
-  const TEAM_DATA = [
+  const FALLBACK_TEAM_DATA = [
     ['fla','Flarengo RJ','Brasil','RJ','br-a',88], ['pal','Palmeyras SP','Brasil','SP','br-a',87],
     ['cor','Coríntia Paulista','Brasil','SP','br-a',84], ['spa','São Paolo FC','Brasil','SP','br-a',83],
     ['san','Santista Praiano','Brasil','SP','br-a',78], ['bot','Botafolgo RJ','Brasil','RJ','br-a',84],
@@ -126,6 +126,8 @@
     ['car','Caracas Capital','Venezuela','VEN','ven-a',70]
   ].map(([id, name, country, state, div, rep]) => ({ id, name, country, state, div, rep }));
 
+  const TEAM_DATA = window.BOLEIROS_DB?.clubs?.length ? window.BOLEIROS_DB.clubs : FALLBACK_TEAM_DATA;
+
   const COUNTRIES = ['Brazil','Argentina','Uruguay','Colombia','Chile','Ecuador','Peru','Paraguay','Bolivia','Venezuela','Mexico','United States','Canada','Germany','France','Spain','Portugal','England','Netherlands','Italy','Croatia','Morocco','Japan','South Korea','Ghana','Senegal','Australia','Saudi Arabia','Egypt','Nigeria','South Africa','Belgium'];
 
   const FIRST = 'Rafael Bruno Caio Diego Felipe Guto Hugo João Kauã Léo Marcos Neto Otávio Paulo Renan Sandro Tiago Vini Wesley Yuri Zeca Facundo Santiago Nicolás Lautaro Matías Pablo Diego Sebastián Franco Carlos Andrés Miguel'.split(' ');
@@ -172,6 +174,7 @@
       state: data.state,
       div: data.div,
       rep: data.rep,
+      group: data.group || null,
       fans: rand(6000, 42000) * (data.rep > 82 ? 2 : 1),
       stadium: rand(12000, 65000),
       training: rand(1, 4),
@@ -236,6 +239,19 @@
     return fixtures;
   }
 
+  function doubleRoundRobin(teamIds, competition, phase = 'liga') {
+    const firstLeg = roundRobin(teamIds, competition, phase);
+    const roundOffset = Math.max(0, ...firstLeg.map(fixture => fixture.round));
+    const secondLeg = firstLeg.map((fixture, index) => ({
+      ...fixture,
+      id: `${fixture.id}_return_${index}`,
+      round: fixture.round + roundOffset,
+      home: fixture.away,
+      away: fixture.home
+    }));
+    return [...firstLeg, ...secondLeg];
+  }
+
   function chooseTop(teams, amount) {
     return [...teams].sort((a, b) => b.rep - a.rep || a.name.localeCompare(b.name, 'pt-BR')).slice(0, amount);
   }
@@ -258,15 +274,29 @@
       });
 
       ['br-a','br-b','br-c','br-d'].forEach(div => {
-        let divisionTeams = chooseTop(teams.filter(team => team.div === div), 12);
-        if (userTeam.div === div && !divisionTeams.some(team => team.id === userTeam.id)) divisionTeams = [userTeam, ...divisionTeams].slice(0, 12);
+        const allDivisionTeams = teams.filter(team => team.div === div);
+        const divisionTeams = div === 'br-d' && userTeam.div === 'br-d'
+          ? allDivisionTeams.filter(team => team.group === userTeam.group)
+          : allDivisionTeams;
+        const competitionName = div === 'br-d' && userTeam.div === 'br-d'
+          ? `${divLabel(div)} - Grupo ${userTeam.group}`
+          : divLabel(div);
+        const fixtures = userTeam.div !== div
+          ? []
+          : div === 'br-c'
+            ? roundRobin(divisionTeams.map(team => team.id), competitionName, 'primeira fase')
+            : doubleRoundRobin(divisionTeams.map(team => team.id), competitionName, div === 'br-d' ? 'fase de grupos' : 'liga');
         competitions.push({
           id: div,
-          name: divLabel(div),
+          name: competitionName,
           scope: 'nacional',
           participants: divisionTeams.map(team => team.id),
-          description: 'Campeonato nacional por pontos corridos.',
-          fixtures: userTeam.div === div ? roundRobin(divisionTeams.map(team => team.id), divLabel(div), 'liga') : []
+          description: div === 'br-d'
+            ? 'Primeira fase regional com seis clubes e jogos de ida e volta.'
+            : div === 'br-c'
+              ? 'Primeira fase nacional em grupo único com 19 rodadas.'
+              : 'Campeonato nacional com turno e returno em 38 rodadas.',
+          fixtures
         });
       });
     } else {
@@ -282,27 +312,18 @@
       });
     }
 
-    const libertadores = chooseTop(teams.filter(team => team.rep >= 76), 24);
-    if (!libertadores.some(team => team.id === userTeam.id) && userTeam.rep >= 74) libertadores.unshift(userTeam);
-    competitions.push({
-      id: 'libertadores',
-      name: 'Libertadores Boleiros',
-      scope: 'continental',
-      participants: libertadores.slice(0, 24).map(team => team.id),
-      description: 'Competição continental principal.',
-      fixtures: libertadores.some(team => team.id === userTeam.id) ? roundRobin(libertadores.slice(0, 8).map(team => team.id), 'Libertadores Boleiros', 'grupo').slice(0, 14) : []
-    });
-
-    const sudamericana = chooseTop(teams.filter(team => team.rep >= 64 && team.rep < 78), 24);
-    if (!sudamericana.some(team => team.id === userTeam.id) && userTeam.rep < 76) sudamericana.unshift(userTeam);
-    competitions.push({
-      id: 'sula',
-      name: 'Sul-Americana Boleiros',
-      scope: 'continental',
-      participants: sudamericana.slice(0, 24).map(team => team.id),
-      description: 'Competição continental alternativa.',
-      fixtures: sudamericana.some(team => team.id === userTeam.id) ? roundRobin(sudamericana.slice(0, 8).map(team => team.id), 'Sul-Americana Boleiros', 'grupo').slice(0, 14) : []
-    });
+    const internationalTeams = teams.filter(team => team.country !== 'Brasil');
+    if (internationalTeams.length >= 16) {
+      const libertadores = chooseTop(teams.filter(team => team.rep >= 76), 24);
+      competitions.push({
+        id: 'libertadores',
+        name: 'Libertadores',
+        scope: 'continental',
+        participants: libertadores.slice(0, 24).map(team => team.id),
+        description: 'Competição continental principal.',
+        fixtures: []
+      });
+    }
 
     competitions.push({
       id: 'worldcup',
@@ -318,12 +339,25 @@
 
   function newGame(options = {}) {
     const teams = TEAM_DATA.map(createTeam);
-    const teamId = options.teamId || 'bolfc';
+    const requestedTeam = options.teamId || 'corinthians';
+    const teamId = teams.some(team => team.id === requestedTeam) ? requestedTeam : teams[0].id;
     const players = [];
 
     teams.forEach(team => {
-      for (let i = 0; i < 20; i++) {
-        players.push(createPlayer(i, team.id, team.rep, team.id === teamId && i === 10));
+      const registeredNames = window.BOLEIROS_DB?.rosters?.[team.id] || [];
+      const squadSize = registeredNames.length || 24;
+      for (let i = 0; i < squadSize; i++) {
+        const player = createPlayer(i, team.id, team.rep, false);
+        if (registeredNames[i]) {
+          player.name = registeredNames[i];
+          player.dataStatus = 'CBF 2026';
+        }
+        players.push(player);
+      }
+      if (team.id === teamId) {
+        const existingStarter = players.filter(player => player.teamId === team.id && player.starter).at(-1);
+        if (existingStarter) existingStarter.starter = false;
+        players.push(createPlayer(10, team.id, team.rep, true));
       }
     });
 
@@ -331,7 +365,9 @@
     const fixtures = competitions.flatMap(comp => comp.fixtures);
 
     return {
-      version: 8,
+      version: 9,
+      databaseVersion: window.BOLEIROS_DB?.version || 'legacy',
+      databaseUpdatedAt: window.BOLEIROS_DB?.updatedAt || null,
       week: 1,
       season: 1,
       phase: 'pré-temporada',
@@ -395,7 +431,7 @@
 
   function migrate(raw) {
     if (!raw) return null;
-    if (raw.version === 8 && raw.teams && raw.fixtures) {
+    if (raw.version === 9 && raw.databaseVersion === (window.BOLEIROS_DB?.version || 'legacy') && raw.teams && raw.fixtures) {
       if (!['tecnico', 'completo'].includes(raw.matchMode)) raw.matchMode = 'tecnico';
       raw.lastTrainingWeek = raw.lastTrainingWeek || 0;
       raw.lastLifeWeek = raw.lastLifeWeek || 0;
@@ -404,7 +440,7 @@
 
     const migrated = newGame({
       coach: raw.user?.coach || 'João',
-      teamId: 'bolfc',
+      teamId: TEAM_DATA.some(team => team.id === raw.user?.teamId) ? raw.user.teamId : 'corinthians',
       difficulty: raw.user?.difficulty || 'Normal'
     });
 
@@ -570,7 +606,7 @@
         <div class="panel heroPanel">
           <div class="logo">B</div>
           <h1>Boleiros</h1>
-          <p class="lead">Manager sul-americano com clubes fictícios, calendário realista, modo Técnico e carreira jogável no modo Completo.</p>
+          <p class="lead">Gestão de clube no estilo Brasfoot com carreira jogável inspirada em NSS. Base brasileira 2026 e dois modos de partida.</p>
           <div class="actionbar heroActions">
             <button class="pri" data-start="new">Novo jogo</button>
             ${hasSave ? '<button data-start="continue">Continuar campanha</button>' : ''}
@@ -578,10 +614,10 @@
             <button data-start="demo">Demo rápida</button>
           </div>
           <div class="g4">
-            <div class="card"><b>Sem cara de protótipo</b><p class="mut">Fluxo mais limpo, ações consistentes e menos botão solto.</p></div>
-            <div class="card"><b>Escolha clara</b><p class="mut">Times por divisão e ordem alfabética.</p></div>
-            <div class="card"><b>Dois jeitos de jogar</b><p class="mut">Comande como Técnico ou controle o Boleiro no modo Completo.</p></div>
-            <div class="card"><b>Mobile first</b><p class="mut">Controles grandes, ações no rodapé e interface compacta.</p></div>
+            <div class="card"><b>156 clubes brasileiros</b><p class="mut">Séries A, B, C e os 16 grupos da Série D de 2026.</p></div>
+            <div class="card"><b>Temporada estruturada</b><p class="mut">Turno e returno, grupos regionais e calendário por rodada.</p></div>
+            <div class="card"><b>Técnico ou Completo</b><p class="mut">Comande o time ou controle o seu Boleiro em campo.</p></div>
+            <div class="card"><b>Base versionada</b><p class="mut">Clubes separados do motor para permitir atualizações de elenco.</p></div>
           </div>
         </div>
       </section>`;
@@ -638,7 +674,7 @@
                 </select>
                 <p class="mut">A dificuldade vai impactar finanças, crescimento e força dos rivais nas próximas versões.</p>
               </div>
-              <div class="disc">Boleiros é fictício e independente. Clubes e atletas usam nomes alterados, sem escudos, uniformes, imagens ou dados oficiais.</div>
+              <div class="disc">Base de clubes 2026. Nomes e registros da Série A são factuais; atributos e avaliações são originais do Boleiros. Sem escudos ou uniformes oficiais.</div>
               <div class="actionbar stickyCta">
                 <button class="pri wide" data-start="create">Começar temporada</button>
               </div>
@@ -650,8 +686,8 @@
   }
 
   function updateClubPreview() {
-    const selected = $('#clubSelect')?.value || 'bolfc';
-    const data = TEAM_DATA.find(item => item.id === selected) || TEAM_DATA.find(item => item.id === 'bolfc') || TEAM_DATA[0];
+    const selected = $('#clubSelect')?.value || 'corinthians';
+    const data = TEAM_DATA.find(item => item.id === selected) || TEAM_DATA.find(item => item.id === 'corinthians') || TEAM_DATA[0];
     const preview = $('#clubPreview');
     if (!preview) return;
 
@@ -669,7 +705,7 @@
         <div><span class="mut">País</span><div class="big">${data.country}</div></div>
         <div><span class="mut">Estado</span><div class="big">${data.state}</div></div>
       </div>
-      <p class="mut">Calendário inicial será gerado com estadual/local, liga nacional, torneio continental elegível e World Cup no menu de competições.</p>`;
+      <p class="mut">${data.div === 'br-d' ? `Grupo ${data.group} da Série D, com dez rodadas antes do mata-mata.` : data.div === 'br-c' ? 'Primeira fase nacional com 19 rodadas.' : 'Campeonato nacional em turno e returno, com 38 rodadas.'}</p>`;
   }
 
   function filterTeams() {
@@ -908,6 +944,7 @@
             <div class="stack">${assistantRecommendations()}</div>
             <h3>Universo</h3>
             <div class="item">Clubes no database <b>${state.teams.length}</b></div>
+            <div class="item">Versão da base <b>${state.databaseVersion}</b></div>
             <div class="item">Competições <b>${state.competitions.length}</b></div>
             <div class="item">Seu país <b>${team().country}</b></div>
           </section>
