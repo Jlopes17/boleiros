@@ -757,7 +757,7 @@
       escala: 'Onze inicial e desenho no campo.',
       taticas: 'Plano de jogo com impacto real na simulação.',
       treino: 'Evolução, fadiga e risco de queda física.',
-      partida: 'Três modos de jogo com controles consistentes.',
+      partida: 'Escolha entre comandar como técnico ou controlar o Boleiro.',
       mercado: 'Compra, venda e reposição do elenco.',
       financas: 'Caixa, ingresso, folha e estrutura.',
       competicoes: 'Estaduais, Brasileirão, continentais e World Cup.',
@@ -820,13 +820,14 @@
   }
 
   function fixtureItem(fixture) {
+    const playable = !fixture.done && fixture.id === nextFixture()?.id;
     return `
       <div class="item">
         <div>
           <b>${team(fixture.home).name}</b> ${fixture.done ? fixture.homeGoals : '-'} x ${fixture.done ? fixture.awayGoals : '-'} <b>${team(fixture.away).name}</b>
           <br><span class="mut">${fixture.competition} • Rodada ${fixture.round}</span>
         </div>
-        ${!fixture.done && (fixture.home === state.user.teamId || fixture.away === state.user.teamId) ? '<button class="pri" data-action="match">Jogar</button>' : ''}
+        ${playable ? '<button class="pri" data-action="match">Jogar próxima</button>' : ''}
       </div>`;
   }
 
@@ -1200,6 +1201,13 @@
       return;
     }
 
+    if (starters().length !== 11) {
+      view = 'elenco';
+      render();
+      showToast('Escolha exatamente 11 titulares antes da partida');
+      return;
+    }
+
     stopMatchTimers();
 
     activeMatch = {
@@ -1215,8 +1223,21 @@
       ballX: 50,
       ballY: 50,
       log: ['A bola vai rolar.'],
-      stats: { shotsFor: 0, shotsAgainst: 0, possession: 50, tackles: 0, passes: 0 },
+      stats: {
+        shotsFor: 0,
+        shotsAgainst: 0,
+        shotsOnTargetFor: 0,
+        shotsOnTargetAgainst: 0,
+        possession: 50,
+        tackles: 0,
+        tacklesAgainst: 0,
+        passes: 0,
+        passesAgainst: 0,
+        cornersFor: 0,
+        cornersAgainst: 0
+      },
       moments: 0,
+      halfHandled: false,
       full: null
     };
 
@@ -1234,16 +1255,38 @@
   function renderMatchShell() {
     const fixture = currentMatchFixture();
     box.classList.toggle('completeMatch', activeMatch.mode === 'completo');
+    const isHome = fixture.home === state.user.teamId;
+    const homeStat = (forValue, againstValue) => isHome ? forValue : againstValue;
+    const awayStat = (forValue, againstValue) => isHome ? againstValue : forValue;
+    const coachView = `
+      <div class="coachMatchCenter">
+        <section class="coachEvents">
+          <h3>Lances da partida</h3>
+          <div class="stack">${activeMatch.log.slice(-10).reverse().map(item => `<div class="item">${html(item)}</div>`).join('')}</div>
+        </section>
+        <section class="coachStats">
+          <h3>Estatísticas</h3>
+          <div class="matchStatHeader"><b>${html(team(fixture.home).name)}</b><span>Partida</span><b>${html(team(fixture.away).name)}</b></div>
+          ${[
+            ['Posse de bola', homeStat(activeMatch.stats.possession, 100 - activeMatch.stats.possession) + '%', awayStat(activeMatch.stats.possession, 100 - activeMatch.stats.possession) + '%'],
+            ['Finalizações', homeStat(activeMatch.stats.shotsFor, activeMatch.stats.shotsAgainst), awayStat(activeMatch.stats.shotsFor, activeMatch.stats.shotsAgainst)],
+            ['No gol', homeStat(activeMatch.stats.shotsOnTargetFor, activeMatch.stats.shotsOnTargetAgainst), awayStat(activeMatch.stats.shotsOnTargetFor, activeMatch.stats.shotsOnTargetAgainst)],
+            ['Passes', homeStat(activeMatch.stats.passes, activeMatch.stats.passesAgainst), awayStat(activeMatch.stats.passes, activeMatch.stats.passesAgainst)],
+            ['Desarmes', homeStat(activeMatch.stats.tackles, activeMatch.stats.tacklesAgainst), awayStat(activeMatch.stats.tackles, activeMatch.stats.tacklesAgainst)],
+            ['Escanteios', homeStat(activeMatch.stats.cornersFor, activeMatch.stats.cornersAgainst), awayStat(activeMatch.stats.cornersFor, activeMatch.stats.cornersAgainst)]
+          ].map(([label, home, away]) => `<div class="matchStatRow"><b>${home}</b><span>${label}</span><b>${away}</b></div>`).join('')}
+        </section>
+      </div>`;
     box.innerHTML = `
       <div class="modalHead">
         <div>
           <h2>${team(fixture.home).name} ${activeMatch.homeGoals} x ${activeMatch.awayGoals} ${team(fixture.away).name}</h2>
           <p class="mut">${fixture.competition} • ${Math.floor(activeMatch.minute)}' • ${modeLabel(activeMatch.mode)}</p>
         </div>
-        <button data-close="1">Fechar</button>
+        <span class="liveMatchTag">AO VIVO</span>
       </div>
       <div class="timeline">${Array.from({ length: 10 }, (_, index) => `<span class="${activeMatch.minute >= index * 9 ? 'on' : ''}"></span>`).join('')}</div>
-      <div class="matchLayout">
+      ${activeMatch.mode === 'tecnico' ? coachView : `<div class="matchLayout">
         <div>
           <canvas id="cv" width="980" height="430"></canvas>
           <div class="matchControlBar">${matchControls()}</div>
@@ -1258,16 +1301,15 @@
             <div><span>Posse</span><b>${activeMatch.stats.possession}%</b></div>
           </div>
         </aside>
-      </div>`;
+      </div>`}
+      ${activeMatch.mode === 'tecnico' ? `<div class="matchControlBar">${matchControls()}</div>` : ''}`;
     drawMatch();
   }
 
   function matchControls() {
     const top = '<div class="actionbar matchActions">' +
-      '<button data-switch-mode="tecnico" class="' + (activeMatch.mode === 'tecnico' ? 'pri' : '') + '">Técnico</button>' +
-      '<button data-switch-mode="completo" class="' + (activeMatch.mode === 'completo' ? 'pri' : '') + '">Completo</button>' +
-      '<button data-match="pause">' + (activeMatch.paused ? 'Continuar' : 'Pausar') + '</button>' +
-      '<button data-match="finish">Encerrar</button>' +
+      '<span class="lockedMode">Modo: ' + modeLabel(activeMatch.mode) + '</span>' +
+      '<button data-match="pause">' + (activeMatch.paused ? (activeMatch.halfHandled && activeMatch.minute === 45 ? 'Começar 2º tempo' : 'Continuar') : 'Pausar') + '</button>' +
     '</div>';
 
     if (activeMatch.mode === 'tecnico') {
@@ -1386,7 +1428,8 @@
     loopTimer = setInterval(() => {
       if (!activeMatch || activeMatch.mode !== 'tecnico' || activeMatch.paused) return;
 
-      activeMatch.minute += rand(3, 6);
+      const previousMinute = activeMatch.minute;
+      activeMatch.minute += rand(2, 4);
       activeMatch.ballX = clamp(activeMatch.ballX + rand(-18, 18), 5, 95);
       activeMatch.ballY = clamp(activeMatch.ballY + rand(-22, 22), 8, 92);
 
@@ -1398,19 +1441,48 @@
       if (state.tactics.mentality === 'Ofensiva') chance += 0.04;
       if (state.tactics.mentality === 'Defensiva') chance -= 0.02;
 
-      activeMatch.stats.possession = clamp(activeMatch.stats.possession + (state.tactics.mentality === 'Ofensiva' ? 1 : state.tactics.mentality === 'Defensiva' ? -1 : 0), 35, 65);
+      const strengthEdge = (strength(state.user.teamId) - strength(opponent)) / 20;
+      const tacticalEdge = state.tactics.mentality === 'Ofensiva' ? 0.8 : state.tactics.mentality === 'Defensiva' ? -0.5 : 0;
+      const targetPossession = clamp(50 + strengthEdge + tacticalEdge, 38, 62);
+      activeMatch.stats.possession = clamp(activeMatch.stats.possession + Math.sign(targetPossession - activeMatch.stats.possession), 35, 65);
+      activeMatch.stats.passes += rand(3, 7);
+      activeMatch.stats.passesAgainst += rand(3, 7);
+      if (Math.random() < 0.35) activeMatch.stats.tackles++;
+      if (Math.random() < 0.35) activeMatch.stats.tacklesAgainst++;
+
+      if (previousMinute < 45 && activeMatch.minute >= 45 && !activeMatch.halfHandled) {
+        activeMatch.minute = 45;
+        activeMatch.paused = true;
+        activeMatch.halfHandled = true;
+        activeMatch.log.push("45' Intervalo. Hora de ajustar o time.");
+        renderMatchShell();
+        return;
+      }
 
       if (Math.random() < 0.38) {
         if (Math.random() < chance) {
           isHome ? activeMatch.homeGoals++ : activeMatch.awayGoals++;
           activeMatch.stats.shotsFor++;
+          activeMatch.stats.shotsOnTargetFor++;
           activeMatch.log.push(`${Math.floor(activeMatch.minute)}' GOOOL do ${team().name}!`);
         } else if (Math.random() < 0.36) {
           isHome ? activeMatch.awayGoals++ : activeMatch.homeGoals++;
           activeMatch.stats.shotsAgainst++;
+          activeMatch.stats.shotsOnTargetAgainst++;
           activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Gol do adversário.`);
         } else {
-          activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Ajuste tático segurou uma chance perigosa.`);
+          const ours = Math.random() < 0.52;
+          if (ours) {
+            activeMatch.stats.shotsFor++;
+            if (Math.random() < 0.42) activeMatch.stats.shotsOnTargetFor++;
+            if (Math.random() < 0.18) activeMatch.stats.cornersFor++;
+            activeMatch.log.push(`${Math.floor(activeMatch.minute)}' Nosso time finaliza, mas não marca.`);
+          } else {
+            activeMatch.stats.shotsAgainst++;
+            if (Math.random() < 0.42) activeMatch.stats.shotsOnTargetAgainst++;
+            if (Math.random() < 0.18) activeMatch.stats.cornersAgainst++;
+            activeMatch.log.push(`${Math.floor(activeMatch.minute)}' O adversário leva perigo.`);
+          }
         }
       }
 
@@ -2134,6 +2206,7 @@
     state.preparation = { training: false, lineup: false, tactics: false, market: false };
     state.news.push(`${team(fixture.home).name} ${homeGoals} x ${awayGoals} ${team(fixture.away).name}. ${fixture.competition}. Saldo da semana: ${money(weeklyBalance)}.`);
 
+    const stats = activeMatch.stats;
     const summary = `
       <div class="modalHead">
         <h2>Pós-jogo</h2>
@@ -2146,12 +2219,20 @@
         <div class="card">Saldo semana<div class="big">${money(weeklyBalance)}</div></div>
         <div class="card">Posição<div class="big">${standingPosition()}º</div></div>
       </div>
+      <h3>Resumo da partida</h3>
+      <div class="g4">
+        <div class="card">Posse<div class="big">${stats.possession}%</div></div>
+        <div class="card">Finalizações<div class="big">${stats.shotsFor} x ${stats.shotsAgainst}</div></div>
+        <div class="card">No gol<div class="big">${stats.shotsOnTargetFor} x ${stats.shotsOnTargetAgainst}</div></div>
+        <div class="card">Passes<div class="big">${stats.passes}</div></div>
+      </div>
       <div class="actionbar stickyCta">
-        <button class="pri wide" data-close="1">Continuar</button>
+        <button class="pri wide" data-close="1">Continuar para a próxima semana</button>
       </div>`;
 
     activeMatch = null;
     box.innerHTML = summary;
+    save();
     render();
   }
 
@@ -2306,16 +2387,6 @@
       return render();
     }
 
-    if (data.switchMode && activeMatch) {
-      stopLoopOnly();
-      activeMatch.mode = data.switchMode;
-      activeMatch.full = null;
-      renderMatchShell();
-      if (activeMatch.mode === 'tecnico') startCoachMode();
-      if (activeMatch.mode === 'completo') startFullMode();
-      return;
-    }
-
     if (data.match === 'kickoff' && activeMatch?.mode === 'completo' && activeMatch.full) {
       activeMatch.full.ready = true;
       activeMatch.full.lastTime = performance.now();
@@ -2330,8 +2401,6 @@
       renderMatchShell();
       return showToast(activeMatch.paused ? 'Pausado' : 'Rodando');
     }
-
-    if (data.match === 'finish' && activeMatch) return finishMatch();
 
     if (data.coach && activeMatch) {
       if (data.coach === 'sub') {
