@@ -41,28 +41,53 @@ const context = {
 context.window = context;
 vm.createContext(context);
 
-['data/brazil-2026.js', 'data/serie-a-rosters-2026.js', 'game.js'].forEach(file => {
+['data/brazil-2026.js', 'data/south-america-2026.js', 'data/serie-a-rosters-2026.js', 'data/serie-b-rosters-2026.js', 'game.js'].forEach(file => {
   vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
 });
 
-assert.equal(context.BOLEIROS_DB.clubs.length, 156);
-assert.equal(Object.keys(context.BOLEIROS_DB.rosters).length, 20);
-assert.ok(Object.values(context.BOLEIROS_DB.rosters).flat().length >= 700);
+assert.ok(context.BOLEIROS_DB.clubs.length >= 300);
+assert.equal(new Set(context.BOLEIROS_DB.clubs.map(club => club.id)).size, context.BOLEIROS_DB.clubs.length);
+assert.equal(Object.keys(context.BOLEIROS_DB.rosters).length, 40);
+assert.ok(Object.values(context.BOLEIROS_DB.rosters).flat().length >= 1390);
+assert.ok(Object.keys(context.BOLEIROS_DB.rosters).every(id => context.BOLEIROS_DB.clubs.some(club => club.id === id)));
 
 listeners.click({ target: { closest: () => ({ dataset: { start: 'create' } }) } });
 const save = JSON.parse(storage.get('boleiros_save_v9'));
 assert.equal(save.version, 9);
-assert.equal(save.databaseVersion, 'br-2026.1');
-assert.equal(save.teams.length, 156);
+assert.equal(save.databaseVersion, 'sa-2026.2');
+assert.ok(save.teams.length >= 300);
 assert.equal(save.user.teamId, 'manaus');
-const serieD = save.competitions.find(comp => comp.id === 'br-d');
+const serieD = save.competitions.find(comp => comp.division === 'br-d' && comp.participants.includes('manaus'));
 assert.equal(serieD.participants.length, 6);
 assert.equal(Math.max(...save.fixtures.filter(f => f.competition === serieD.name).map(f => f.round)), 10);
 assert.equal(save.players.filter(player => player.teamId === 'manaus' && player.star).length, 1);
 
+listeners.click({ target: { closest: () => ({ dataset: { action: 'newSeason' } }) } });
+const seasonTwo = JSON.parse(storage.get('boleiros_save_v9'));
+assert.equal(seasonTwo.season, 2);
+assert.equal(seasonTwo.teams.filter(team => team.div === 'br-a').length, 20);
+assert.equal(seasonTwo.teams.filter(team => team.div === 'br-b').length, 20);
+assert.equal(seasonTwo.teams.filter(team => team.div === 'br-c').length, 24);
+assert.equal(seasonTwo.teams.filter(team => team.div === 'br-d').length, 92);
+assert.equal(seasonTwo.history.length, 1);
+
+for (let season = 3; season <= 5; season++) {
+  listeners.click({ target: { closest: () => ({ dataset: { action: 'newSeason' } }) } });
+  const multiSeason = JSON.parse(storage.get('boleiros_save_v9'));
+  assert.equal(multiSeason.season, season);
+  assert.equal(multiSeason.teams.filter(team => team.div === 'br-a').length, 20);
+  assert.equal(multiSeason.teams.filter(team => team.div === 'br-b').length, 20);
+  assert.equal(multiSeason.teams.filter(team => team.div === 'br-c').length, 24);
+  assert.equal(multiSeason.teams.filter(team => team.div === 'br-d').length, 92);
+}
+const seasonFive = JSON.parse(storage.get('boleiros_save_v9'));
+assert.ok(seasonFive.teams.every(team => seasonFive.players.filter(player => player.teamId === team.id).length >= 22));
+assert.ok(seasonFive.teams.every(team => seasonFive.players.filter(player => player.teamId === team.id && player.starter).length <= 11));
+
 console.log('Smoke test passed:', {
-  clubs: save.teams.length,
-  players: save.players.length,
+  clubs: seasonFive.teams.length,
+  players: seasonFive.players.length,
   serieDGroup: serieD.name,
-  rounds: 10
+  rounds: 10,
+  season: seasonFive.season
 });
