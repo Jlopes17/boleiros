@@ -180,7 +180,8 @@
       training: rand(1, 4),
       academy: rand(1, 4),
       medical: rand(1, 3),
-      morale: rand(48, 88)
+      morale: rand(48, 88),
+      balance: Math.round((data.rep ** 3) * 180)
     };
   }
 
@@ -202,6 +203,7 @@
       contract: rand(8, 36),
       injury: 0,
       suspended: 0,
+      yellowCards: 0,
       starter: index < 11,
       teamId,
       star,
@@ -273,30 +275,35 @@
         fixtures: roundRobin(stateTeams.map(team => team.id), stateLabel(userTeam.state), 'estadual')
       });
 
-      ['br-a','br-b','br-c','br-d'].forEach(div => {
-        const allDivisionTeams = teams.filter(team => team.div === div);
-        const divisionTeams = div === 'br-d' && userTeam.div === 'br-d'
-          ? allDivisionTeams.filter(team => team.group === userTeam.group)
-          : allDivisionTeams;
-        const competitionName = div === 'br-d' && userTeam.div === 'br-d'
-          ? `${divLabel(div)} - Grupo ${userTeam.group}`
-          : divLabel(div);
-        const fixtures = userTeam.div !== div
-          ? []
-          : div === 'br-c'
-            ? roundRobin(divisionTeams.map(team => team.id), competitionName, 'primeira fase')
-            : doubleRoundRobin(divisionTeams.map(team => team.id), competitionName, div === 'br-d' ? 'fase de grupos' : 'liga');
+      ['br-a','br-b','br-c'].forEach(div => {
+        const divisionTeams = teams.filter(team => team.div === div);
+        const competitionName = divLabel(div);
         competitions.push({
           id: div,
           name: competitionName,
           scope: 'nacional',
           participants: divisionTeams.map(team => team.id),
-          description: div === 'br-d'
-            ? 'Primeira fase regional com seis clubes e jogos de ida e volta.'
-            : div === 'br-c'
-              ? 'Primeira fase nacional em grupo único com 19 rodadas.'
-              : 'Campeonato nacional com turno e returno em 38 rodadas.',
-          fixtures
+          description: div === 'br-c'
+            ? 'Primeira fase nacional em grupo único com 19 rodadas.'
+            : 'Campeonato nacional com turno e returno em 38 rodadas.',
+          fixtures: div === 'br-c'
+            ? roundRobin(divisionTeams.map(team => team.id), competitionName, 'primeira fase')
+            : doubleRoundRobin(divisionTeams.map(team => team.id), competitionName, 'liga')
+        });
+      });
+
+      const serieDTeams = teams.filter(team => team.div === 'br-d');
+      [...new Set(serieDTeams.map(team => team.group).filter(Boolean))].sort().forEach(group => {
+        const groupTeams = serieDTeams.filter(team => team.group === group);
+        const competitionName = `${divLabel('br-d')} - Grupo ${group}`;
+        competitions.push({
+          id: `br-d-${group}`,
+          division: 'br-d',
+          name: competitionName,
+          scope: 'nacional',
+          participants: groupTeams.map(team => team.id),
+          description: 'Primeira fase regional com seis clubes e jogos de ida e volta.',
+          fixtures: doubleRoundRobin(groupTeams.map(team => team.id), competitionName, 'fase de grupos')
         });
       });
     } else {
@@ -308,20 +315,36 @@
         scope: 'nacional',
         participants: localTeams.map(team => team.id),
         description: 'Liga nacional do país escolhido.',
-        fixtures: roundRobin(localTeams.map(team => team.id), `Liga ${userTeam.country}`, 'liga')
+        fixtures: doubleRoundRobin(localTeams.map(team => team.id), `Liga ${userTeam.country}`, 'liga')
       });
     }
 
     const internationalTeams = teams.filter(team => team.country !== 'Brasil');
     if (internationalTeams.length >= 16) {
-      const libertadores = chooseTop(teams.filter(team => team.rep >= 76), 24);
+      const libertadores = chooseTop(teams.filter(team => team.rep >= 74), 32);
+      const inLibertadores = libertadores.some(team => team.id === userTeam.id);
+      const libIndex = Math.max(0, libertadores.findIndex(team => team.id === userTeam.id));
+      const libGroup = inLibertadores ? libertadores.slice(Math.floor(libIndex / 4) * 4, Math.floor(libIndex / 4) * 4 + 4) : libertadores;
       competitions.push({
         id: 'libertadores',
-        name: 'Libertadores',
+        name: inLibertadores ? 'Libertadores - Fase de grupos' : 'Libertadores',
         scope: 'continental',
-        participants: libertadores.slice(0, 24).map(team => team.id),
-        description: 'Competição continental principal.',
-        fixtures: []
+        participants: libGroup.map(team => team.id),
+        description: inLibertadores ? 'Grupo com quatro clubes e seis rodadas.' : 'Competição continental principal.',
+        fixtures: inLibertadores ? doubleRoundRobin(libGroup.map(team => team.id), 'Libertadores - Fase de grupos', 'grupo') : []
+      });
+
+      const sudamericana = chooseTop(teams.filter(team => team.rep >= 68 && !libertadores.some(lib => lib.id === team.id)), 32);
+      const inSudamericana = sudamericana.some(team => team.id === userTeam.id);
+      const sulaIndex = Math.max(0, sudamericana.findIndex(team => team.id === userTeam.id));
+      const sulaGroup = inSudamericana ? sudamericana.slice(Math.floor(sulaIndex / 4) * 4, Math.floor(sulaIndex / 4) * 4 + 4) : sudamericana;
+      competitions.push({
+        id: 'sudamericana',
+        name: inSudamericana ? 'Sul-Americana - Fase de grupos' : 'Sul-Americana',
+        scope: 'continental',
+        participants: sulaGroup.map(team => team.id),
+        description: inSudamericana ? 'Grupo com quatro clubes e seis rodadas.' : 'Competição continental secundária.',
+        fixtures: inSudamericana ? doubleRoundRobin(sulaGroup.map(team => team.id), 'Sul-Americana - Fase de grupos', 'grupo') : []
       });
     }
 
@@ -407,6 +430,10 @@
         happiness: 72,
         fame: 10,
         cash: 1500,
+        salary: 4200,
+        sponsor: 0,
+        averageRating: 6.5,
+        ratingTotal: 0,
         relationships: { Técnico: 70, Torcida: 60, Elenco: 65, Mídia: 35 },
         skills: { Finalização: 66, Passe: 58, Drible: 63, Velocidade: 67, Defesa: 35 },
         goals: 0,
@@ -419,6 +446,7 @@
       preparation: { training: false, lineup: false, tactics: false, market: false },
       news: ['Temporada criada. O universo sul-americano está pronto.'],
       achievements: [],
+      history: [],
       filters: { position: 'Todos' },
       worldCup: {
         groups: Array.from({ length: 8 }, (_, i) => ({
@@ -435,6 +463,11 @@
       if (!['tecnico', 'completo'].includes(raw.matchMode)) raw.matchMode = 'tecnico';
       raw.lastTrainingWeek = raw.lastTrainingWeek || 0;
       raw.lastLifeWeek = raw.lastLifeWeek || 0;
+      raw.history = raw.history || [];
+      raw.career.salary = raw.career.salary || 4200;
+      raw.career.sponsor = raw.career.sponsor || 0;
+      raw.career.averageRating = raw.career.averageRating || 6.5;
+      raw.career.ratingTotal = raw.career.ratingTotal || 0;
       return raw;
     }
 
@@ -455,6 +488,10 @@
       migrated.career.happiness = raw.career.happiness || raw.career.feliz || migrated.career.happiness;
       migrated.career.fame = raw.career.fame || raw.career.fama || migrated.career.fame;
       migrated.career.cash = raw.career.cash || raw.career.grana || migrated.career.cash;
+      migrated.career.salary = raw.career.salary || migrated.career.salary;
+      migrated.career.sponsor = raw.career.sponsor || 0;
+      migrated.career.averageRating = raw.career.averageRating || 6.5;
+      migrated.career.ratingTotal = raw.career.ratingTotal || 0;
     }
 
     migrated.news.unshift('Save antigo migrado para a nova versão. Caixa e carreira principal foram preservados.');
@@ -509,6 +546,61 @@
     return squad().reduce((sum, player) => sum + player.salary, 0);
   }
 
+  function transferWindowOpen() {
+    return state.week <= 6 || (state.week >= 25 && state.week <= 30) || state.phase === 'pré-temporada';
+  }
+
+  function runAITransferMarket() {
+    if (!transferWindowOpen()) return;
+    state.teams.filter(item => item.id !== state.user.teamId).forEach(clubTeam => {
+      const clubSquad = squad(clubTeam.id);
+      if (clubSquad.length < 23 && state.market.length) {
+        const target = state.market
+          .filter(player => player.value <= clubTeam.balance * 0.32)
+          .sort((a, b) => b.overall - a.overall || a.age - b.age)[0];
+        if (target) {
+          clubTeam.balance -= target.value;
+          target.teamId = clubTeam.id;
+          target.contract = rand(18, 42);
+          target.salary = Math.round(target.salary * 1.08);
+          state.players.push(target);
+          state.market = state.market.filter(player => player.id !== target.id);
+        }
+      }
+      const refreshed = squad(clubTeam.id).sort((a, b) => b.overall - a.overall);
+      if (refreshed.length > 30) {
+        const released = refreshed.at(-1);
+        released.teamId = 'market';
+        released.starter = false;
+        state.players = state.players.filter(player => player.id !== released.id);
+        state.market.push(released);
+      }
+    });
+  }
+
+  function applyMatchAvailability() {
+    const played = starters();
+    squad().forEach(player => {
+      if (player.suspended) player.suspended = Math.max(0, player.suspended - 1);
+    });
+    played.forEach(player => {
+      if (Math.random() < 0.16) {
+        player.yellowCards = (player.yellowCards || 0) + 1;
+        if (player.yellowCards >= 3) {
+          player.suspended = 1;
+          player.yellowCards = 0;
+          state.news.push(`${player.name} está suspenso por acúmulo de cartões.`);
+        }
+      }
+      const injuryRisk = 0.008 + Math.max(0, 70 - player.fitness) / 1800 + state.training.intensity / 9000;
+      if (Math.random() < injuryRisk) {
+        player.injury = rand(1, 5);
+        player.starter = false;
+        state.news.push(`${player.name} sofreu uma lesão e ficará fora por ${player.injury} semanas.`);
+      }
+    });
+  }
+
   function nextFixture() {
     return state.fixtures.find(fixture => !fixture.done && (fixture.home === state.user.teamId || fixture.away === state.user.teamId));
   }
@@ -557,7 +649,12 @@
 
   function mainCompetitionName() {
     const selectedTeam = team();
-    return selectedTeam.country === 'Brasil' ? divLabel(selectedTeam.div) : `Liga ${selectedTeam.country}`;
+    if (selectedTeam.country !== 'Brasil') return `Liga ${selectedTeam.country}`;
+    const competition = state.competitions.find(comp =>
+      comp.id === selectedTeam.div ||
+      (comp.division === selectedTeam.div && comp.participants.includes(selectedTeam.id))
+    );
+    return competition?.name || divLabel(selectedTeam.div);
   }
 
   function standingPosition() {
@@ -592,6 +689,205 @@
       home.morale = clamp(home.morale + 1);
       away.morale = clamp(away.morale + 1);
     }
+  }
+
+  function simulateFixture(fixture) {
+    if (!fixture || fixture.done) return;
+    const result = simulateScore(fixture.home, fixture.away);
+    applyResult(fixture, result[0], result[1]);
+  }
+
+  function simulateWorldThroughRound(round) {
+    state.competitions
+      .filter(comp => comp.scope === 'nacional' && comp.id !== 'state')
+      .forEach(comp => {
+        state.fixtures
+          .filter(fixture => fixture.competition === comp.name && fixture.round <= round && !fixture.done)
+          .forEach(fixture => {
+            if (fixture.home !== state.user.teamId && fixture.away !== state.user.teamId) simulateFixture(fixture);
+          });
+      });
+  }
+
+  function completeWorldSeason() {
+    state.fixtures.filter(fixture => !fixture.done).forEach(simulateFixture);
+  }
+
+  function moveTeams(ids, division) {
+    ids.forEach(id => {
+      const moved = team(id);
+      moved.div = division;
+    });
+  }
+
+  function geographicGroup(stateCode) {
+    if (['AM','RR'].includes(stateCode)) return 'A1';
+    if (['AC','RO','TO'].includes(stateCode)) return 'A2';
+    if (['DF','MT','GO'].includes(stateCode)) return 'A3';
+    if (['AP','PA','MA'].includes(stateCode)) return 'A5';
+    if (['CE','PI'].includes(stateCode)) return 'A7';
+    if (['RN','PB','PE'].includes(stateCode)) return 'A8';
+    if (['AL','SE','BA'].includes(stateCode)) return 'A10';
+    if (['MG','MS'].includes(stateCode)) return 'A11';
+    if (['ES'].includes(stateCode)) return 'A12';
+    if (['RJ'].includes(stateCode)) return 'A13';
+    if (['SP'].includes(stateCode)) return 'A14';
+    if (['PR'].includes(stateCode)) return 'A15';
+    return 'A16';
+  }
+
+  function twoLegWinner(firstId, secondId) {
+    const first = simulateScore(firstId, secondId);
+    const second = simulateScore(secondId, firstId);
+    const firstTotal = first[0] + second[1];
+    const secondTotal = first[1] + second[0];
+    if (firstTotal !== secondTotal) return firstTotal > secondTotal ? firstId : secondId;
+    return strength(firstId) + rand(-8, 8) >= strength(secondId) + rand(-8, 8) ? firstId : secondId;
+  }
+
+  function miniLeagueQualifiers(ids, amount) {
+    const stats = Object.fromEntries(ids.map(id => [id, baseStats()]));
+    doubleRoundRobin(ids, 'playoff', 'playoff').forEach(fixture => {
+      const [homeGoals, awayGoals] = simulateScore(fixture.home, fixture.away);
+      const home = stats[fixture.home];
+      const away = stats[fixture.away];
+      home.j++; away.j++;
+      home.gp += homeGoals; home.gc += awayGoals;
+      away.gp += awayGoals; away.gc += homeGoals;
+      home.sg = home.gp - home.gc; away.sg = away.gp - away.gc;
+      if (homeGoals > awayGoals) { home.pts += 3; home.v++; away.d++; }
+      else if (awayGoals > homeGoals) { away.pts += 3; away.v++; home.d++; }
+      else { home.pts++; away.pts++; home.e++; away.e++; }
+    });
+    return ids.slice().sort((a, b) => stats[b].pts - stats[a].pts || stats[b].sg - stats[a].sg || strength(b) - strength(a)).slice(0, amount);
+  }
+
+  function serieBPromoted(rows) {
+    const direct = rows.slice(0, 2).map(row => row.team.id);
+    const playoff = rows.slice(2, 6).map(row => row.team.id);
+    if (playoff.length < 4) return rows.slice(0, 4).map(row => row.team.id);
+    return [...direct, twoLegWinner(playoff[0], playoff[3]), twoLegWinner(playoff[1], playoff[2])];
+  }
+
+  function serieCPromoted(rows) {
+    const top = rows.slice(0, 8).map(row => row.team.id);
+    if (top.length < 8) return rows.slice(0, 4).map(row => row.team.id);
+    const groupOne = [top[0], top[3], top[4], top[7]];
+    const groupTwo = [top[1], top[2], top[5], top[6]];
+    return [...miniLeagueQualifiers(groupOne, 2), ...miniLeagueQualifiers(groupTwo, 2)];
+  }
+
+  function serieDPromoted() {
+    let qualifiers = state.competitions
+      .filter(comp => comp.division === 'br-d')
+      .flatMap(comp => competitionStats(comp.name).slice(0, 4).map(row => row.team.id));
+    while (qualifiers.length > 8) {
+      const next = [];
+      for (let index = 0; index < qualifiers.length; index += 2) {
+        if (qualifiers[index + 1]) next.push(twoLegWinner(qualifiers[index], qualifiers[index + 1]));
+        else next.push(qualifiers[index]);
+      }
+      qualifiers = next;
+    }
+    const promoted = [];
+    const quarterFinalLosers = [];
+    for (let index = 0; index < qualifiers.length; index += 2) {
+      const first = qualifiers[index];
+      const second = qualifiers[index + 1];
+      if (!second) { promoted.push(first); continue; }
+      const winner = twoLegWinner(first, second);
+      promoted.push(winner);
+      quarterFinalLosers.push(winner === first ? second : first);
+    }
+    while (promoted.length < 6 && quarterFinalLosers.length >= 2) {
+      promoted.push(twoLegWinner(quarterFinalLosers.shift(), quarterFinalLosers.shift()));
+    }
+    return promoted.slice(0, 6);
+  }
+
+  function seasonMovement() {
+    completeWorldSeason();
+    const standings = id => {
+      const comp = state.competitions.find(item => item.id === id);
+      return comp ? competitionStats(comp.name) : [];
+    };
+    const a = standings('br-a');
+    const b = standings('br-b');
+    const c = standings('br-c');
+    const aDown = a.slice(-4).map(row => row.team.id);
+    const bUp = serieBPromoted(b);
+    const bDown = b.slice(-4).map(row => row.team.id);
+    const cUp = serieCPromoted(c);
+    const cDownCount = state.season === 1 ? 2 : 4;
+    const dUpCount = state.season === 1 ? 6 : 4;
+    const cDown = c.slice(-cDownCount).map(row => row.team.id);
+    const dUp = serieDPromoted().slice(0, dUpCount);
+
+    moveTeams(aDown, 'br-b');
+    moveTeams(bUp, 'br-a');
+    moveTeams(bDown, 'br-c');
+    moveTeams(cUp, 'br-b');
+    moveTeams(cDown, 'br-d');
+    moveTeams(dUp, 'br-c');
+    cDown.forEach(id => { team(id).group = geographicGroup(team(id).state); });
+
+    return { aDown, bUp, bDown, cUp, cDown, dUp };
+  }
+
+  function startNextSeason() {
+    const previousSeason = state.season;
+    const previousDivision = team().div;
+    const movement = seasonMovement();
+
+    state.players.forEach(player => {
+      player.age++;
+      player.contract = Math.max(0, player.contract - 12);
+      player.fitness = clamp(player.fitness + 18);
+      player.form = clamp(player.form - 5);
+      player.injury = Math.max(0, player.injury - 4);
+      player.suspended = 0;
+    });
+
+    const expired = state.players.filter(player => !player.star && player.contract <= 0);
+    expired.forEach(player => {
+      player.teamId = 'market';
+      player.starter = false;
+      player.contract = rand(12, 30);
+    });
+    state.players = state.players.filter(player => player.teamId !== 'market');
+    state.market.push(...expired);
+
+    state.teams.forEach(clubTeam => {
+      const clubSquad = state.players.filter(player => player.teamId === clubTeam.id);
+      while (clubSquad.length < 22) {
+        const youth = createPlayer(clubSquad.length, clubTeam.id, Math.max(48, clubTeam.rep - 8));
+        youth.age = rand(17, 20);
+        youth.potential = clamp(youth.overall + rand(8, 22), youth.overall, 95);
+        youth.contract = 36;
+        state.players.push(youth);
+        clubSquad.push(youth);
+      }
+      clubSquad.forEach(player => { player.starter = false; });
+      clubSquad
+        .filter(player => !player.injury && !player.suspended)
+        .sort((a, b) => b.overall - a.overall || b.fitness - a.fitness)
+        .slice(0, 11)
+        .forEach(player => { player.starter = true; });
+    });
+
+    state.season++;
+    state.week = 1;
+    state.phase = 'pré-temporada';
+    state.preparation = { training: false, lineup: false, tactics: false, market: false };
+    state.lastTrainingWeek = 0;
+    state.lastLifeWeek = 0;
+    const rebuilt = buildCompetitions(state.teams, state.user.teamId);
+    state.fixtures = rebuilt.flatMap(comp => comp.fixtures);
+    state.competitions = rebuilt.map(({ fixtures, ...competition }) => competition);
+    state.history.push({ season: previousSeason, division: previousDivision, movement });
+    state.news.push(`Temporada ${previousSeason} encerrada. A temporada ${state.season} começou com acesso e rebaixamento atualizados.`);
+    save();
+    render();
   }
 
   function render() {
@@ -814,7 +1110,7 @@
   function nextMatchCard() {
     const fixture = nextFixture();
     if (!fixture) {
-      return `<div class="emptyState"><b>Temporada encerrada</b><p>Próximo passo: novas temporadas, acesso e rebaixamento completo.</p></div>`;
+      return `<div class="emptyState"><b>Temporada encerrada</b><p>Conclua a classificação, aplique acessos e rebaixamentos e avance o mercado.</p><button class="pri" data-action="newSeason">Começar próxima temporada</button></div>`;
     }
 
     const opponent = fixture.home === state.user.teamId ? fixture.away : fixture.home;
@@ -922,9 +1218,19 @@
     return recommendations.map(item => `<div class="item">${item}</div>`).join('');
   }
 
+  function weeklyFlow() {
+    const steps = [
+      ['treino','1','Treino', state.lastTrainingWeek === state.week, 'Defina carga e recuperação'],
+      ['elenco','2','Escalação', starters().length === 11, `${starters().length}/11 titulares`],
+      ['taticas','3','Tática', state.preparation.tactics, state.tactics.mentality],
+      ['partida','4','Partida', false, nextFixture() ? 'Próximo compromisso' : 'Temporada concluída']
+    ];
+    return `<section class="panel weekFlow"><div class="sectionHead"><div><h2>Semana ${state.week}</h2><p class="mut">Prepare o time e avance pela próxima partida oficial.</p></div><span class="tag ${transferWindowOpen() ? 'ok' : 'warn'}">Janela ${transferWindowOpen() ? 'aberta' : 'fechada'}</span></div><div class="g4">${steps.map(([viewId, number, label, done, detail]) => `<button class="flowStep ${done ? 'done' : ''}" data-view="${viewId}"><span>${done ? '✓' : number}</span><b>${label}</b><small>${detail}</small></button>`).join('')}</div></section><br>`;
+  }
+
   const pages = {
     painel() {
-      return `
+      return `${weeklyFlow()}
         <div class="grid">
           <section class="panel">
             <div class="sectionHead">
@@ -1061,7 +1367,9 @@
     },
 
     mercado() {
+      const windowOpen = transferWindowOpen();
       return `
+        <div class="insightCard"><b>Janela de transferências:</b> ${windowOpen ? '<span class="tag ok">aberta</span>' : '<span class="tag bad">fechada</span>'} <span class="mut">Semanas 1 a 6 e 25 a 30.</span></div><br>
         <div class="grid">
           <section class="panel">
             <div class="sectionHead">
@@ -1158,14 +1466,21 @@
             <div class="card">
               <h3>Habilidades</h3>
               ${Object.entries(career.skills).map(([key, value]) => `<div class="item"><span>${key}</span><div style="width:160px"><div class="bar"><span style="width:${value}%"></span></div></div></div>`).join('')}
+              <h3>Carreira</h3>
+              <div class="item"><span>Salário semanal</span><b>${money(career.salary)}</b></div>
+              <div class="item"><span>Patrocínio semanal</span><b>${money(career.sponsor)}</b></div>
+              <div class="item"><span>Nota média</span><b>${career.averageRating.toFixed(1).replace('.', ',')}</b></div>
+              <div class="item"><span>Gols / assistências</span><b>${career.goals} / ${career.assists}</b></div>
             </div>
             <div class="card">
               <h3>Vida fora de campo</h3>
               <div class="actionbar">
                 <button data-life="rest" ${lifeDone ? 'disabled' : ''}>Descansar</button>
                 <button data-life="boot" ${lifeDone ? 'disabled' : ''}>Comprar chuteira</button>
+                <button data-life="extra" ${lifeDone ? 'disabled' : ''}>Treino extra</button>
                 <button data-life="media" ${lifeDone ? 'disabled' : ''}>Dar entrevista</button>
                 <button data-life="night" ${lifeDone ? 'disabled' : ''}>Sair à noite</button>
+                <button data-life="sponsor" ${lifeDone ? 'disabled' : ''}>Buscar patrocinador</button>
               </div>
               <p class="mut mini">${lifeDone ? 'Ação semanal concluída. A próxima fica disponível depois da partida.' : 'Escolha uma ação para esta semana.'}</p>
             </div>
@@ -1233,7 +1548,7 @@
       </div>
       <br>
       <div class="grid">
-        <div class="card"><h3>Contrato</h3><p>Salário: <b>${money(player.salary)}</b></p><p>Valor: <b>${money(player.value)}</b></p></div>
+        <div class="card"><h3>Contrato</h3><p>Salário: <b>${money(player.salary)}</b></p><p>Valor: <b>${money(player.value)}</b></p><p>Vínculo: <b>${player.contract} meses</b></p>${player.teamId === state.user.teamId ? `<button data-renew="${player.id}">Renovar por 24 meses</button>` : ''}</div>
         <div class="card"><h3>Status</h3><p>${player.injury ? 'Lesionado por ' + player.injury + ' semanas' : 'Disponível'}</p></div>
       </div>`;
   }
@@ -1343,6 +1658,9 @@
             <div><span>Chutes</span><b>${activeMatch.stats.shotsFor}</b></div>
             <div><span>Contra</span><b>${activeMatch.stats.shotsAgainst}</b></div>
             <div><span>Posse</span><b>${activeMatch.stats.possession}%</b></div>
+            <div><span>No gol</span><b>${activeMatch.stats.shotsOnTargetFor}</b></div>
+            <div><span>Passes</span><b>${activeMatch.stats.passes}</b></div>
+            <div><span>Desarmes</span><b>${activeMatch.stats.tackles}</b></div>
           </div>
         </aside>
       </div>`}
@@ -1691,6 +2009,7 @@
     full.ball.owner = { side: player.side, index: player.index };
     full.ball.target = null;
     full.ball.shot = false;
+    full.ball.onTargetCounted = false;
     full.ball.vx = 0;
     full.ball.vy = 0;
     full.lastTouch = { side: player.side, index: player.index };
@@ -1708,6 +2027,7 @@
     full.ball.vy = dy / distance * speed;
     full.ball.target = target || null;
     full.ball.shot = Boolean(shot);
+    full.ball.onTargetCounted = false;
     full.lastTouch = { side: player.side, index: player.index };
   }
 
@@ -1733,6 +2053,8 @@
 
   function passBall(player, target, speed) {
     if (!target) return;
+    if (player.side === activeMatch.full.userSide) activeMatch.stats.passes++;
+    else activeMatch.stats.passesAgainst++;
     activeMatch.full.lastPasser = { side: player.side, index: player.index };
     releaseBall(player, target.x, target.y, speed, { side: target.side, index: target.index }, false);
   }
@@ -1806,6 +2128,27 @@
     ball.y += ball.vy * dt;
     ball.vx *= Math.pow(0.985, dt * 60);
     ball.vy *= Math.pow(0.985, dt * 60);
+
+    const approachingHomeGoal = ball.shot && ball.x < 6 && ball.vx < 0;
+    const approachingAwayGoal = ball.shot && ball.x > 114 && ball.vx > 0;
+    if (!ball.onTargetCounted && (approachingHomeGoal || approachingAwayGoal) && ball.y > 31 && ball.y < 45) {
+      ball.onTargetCounted = true;
+      const shootingSide = full.lastTouch?.side;
+      if (shootingSide === full.userSide) activeMatch.stats.shotsOnTargetFor++;
+      else activeMatch.stats.shotsOnTargetAgainst++;
+      const defendingSide = approachingAwayGoal ? 'away' : 'home';
+      const goalkeeper = full[defendingSide][0];
+      const saveChance = floatClamp(0.26 + goalkeeper.overall / 260, 0.35, 0.62);
+      if (Math.random() < saveChance) {
+        givePossession(goalkeeper);
+        full.ball.x = goalkeeper.x;
+        full.ball.y = goalkeeper.y;
+        full.feedback = 'Defesa do goleiro!';
+        full.banner = 'DEFESA!';
+        full.bannerFor = 0.65;
+        return;
+      }
+    }
 
     if (ball.target) {
       const target = fullPlayer(ball.target.side, ball.target.index);
@@ -1950,6 +2293,7 @@
       if (tackler && distanceBetween(tackler, currentOwner) < 1.7 && Math.random() < dt * 0.34) {
         givePossession(tackler);
         if (tackler.side === full.userSide) activeMatch.stats.tackles++;
+        else activeMatch.stats.tacklesAgainst++;
       }
     }
   }
@@ -2221,6 +2565,7 @@
     stopMatchTimers();
 
     const fixture = currentMatchFixture();
+    const matchRating = activeMatch.full?.rating || (activeMatch.mode === 'tecnico' ? (6.2 + Math.random() * 1.5) : 6.5);
     const homeGoals = activeMatch.homeGoals;
     const awayGoals = activeMatch.awayGoals;
 
@@ -2243,9 +2588,16 @@
 
     state.finance.balance += weeklyBalance;
     state.career.matches++;
+    state.career.ratingTotal = (state.career.ratingTotal || 0) + matchRating;
+    state.career.averageRating = state.career.ratingTotal / state.career.matches;
+    state.career.cash += state.career.salary + state.career.sponsor;
+    state.career.fame = clamp(state.career.fame + (matchRating >= 8 ? 3 : matchRating >= 7 ? 1 : matchRating < 5.8 ? -1 : 0));
     state.career.energy = clamp(state.career.energy - rand(5, 10));
     state.career.happiness = clamp(state.career.happiness + (win ? 5 : draw ? 1 : -4));
     state.week++;
+    applyMatchAvailability();
+    runAITransferMarket();
+    simulateWorldThroughRound(state.week);
     state.phase = 'pós-jogo';
     state.preparation = { training: false, lineup: false, tactics: false, market: false };
     state.news.push(`${team(fixture.home).name} ${homeGoals} x ${awayGoals} ${team(fixture.away).name}. ${fixture.competition}. Saldo da semana: ${money(weeklyBalance)}.`);
@@ -2258,10 +2610,11 @@
       </div>
       <div class="score">${team(fixture.home).name} ${homeGoals} x ${awayGoals} ${team(fixture.away).name}</div>
       <p class="mut center">${fixture.competition}</p>
-      <div class="g3">
+      <div class="g4">
         <div class="card">Renda<div class="big">${money(attendanceIncome)}</div></div>
         <div class="card">Saldo semana<div class="big">${money(weeklyBalance)}</div></div>
         <div class="card">Posição<div class="big">${standingPosition()}º</div></div>
+        <div class="card">Nota do Boleiro<div class="big">${matchRating.toFixed(1).replace('.', ',')}</div><span class="mut mini">+${money(state.career.salary + state.career.sponsor)}</span></div>
       </div>
       <h3>Resumo da partida</h3>
       <div class="g4">
@@ -2304,6 +2657,11 @@
       player.form = clamp(player.form + (intensity - 45) / 20 + rand(-2, 3));
       player.fitness = clamp(player.fitness - intensity / 26 + rest / 20);
       if (player.injury) player.injury--;
+      if (!player.injury && intensity > 70 && Math.random() < (intensity - 68) / 420) {
+        player.injury = rand(1, 3);
+        player.starter = false;
+        state.news.push(`${player.name} se lesionou no treino.`);
+      }
     });
 
     const skills = state.career.skills;
@@ -2364,6 +2722,7 @@
 
     if (data.view) { view = data.view; return render(); }
     if (data.action === 'match') return openMatch();
+    if (data.action === 'newSeason') return startNextSeason();
     if (data.action === 'autoLineup') return autoLineup();
     if (data.action === 'train') { train(); return render(); }
     if (data.action === 'scout') {
@@ -2400,6 +2759,7 @@
     if (data.competition) return openCompetition(data.competition);
 
     if (data.buy) {
+      if (!transferWindowOpen()) return showToast('A janela de transferências está fechada');
       const player = state.market.find(item => item.id === data.buy);
       if (!player) return;
       if (state.finance.balance < player.value) return showToast('Saldo insuficiente');
@@ -2412,6 +2772,7 @@
     }
 
     if (data.sell) {
+      if (!transferWindowOpen()) return showToast('A janela de transferências está fechada');
       const player = state.players.find(item => item.id === data.sell);
       if (!player) return;
       if (player.star) return showToast('Não dá para vender o Boleiro');
@@ -2420,14 +2781,37 @@
       return render();
     }
 
+    if (data.renew) {
+      const player = state.players.find(item => item.id === data.renew && item.teamId === state.user.teamId);
+      if (!player) return;
+      const bonus = Math.round(player.salary * 2.5);
+      if (state.finance.balance < bonus) return showToast('Saldo insuficiente para a renovação');
+      state.finance.balance -= bonus;
+      player.contract += 24;
+      player.salary = Math.round(player.salary * 1.12);
+      showToast('Contrato renovado por 24 meses');
+      return openPlayer(player.id);
+    }
+
     if (data.life) {
       if (state.lastLifeWeek === state.week) return showToast('Você já fez uma ação fora de campo nesta semana');
       const career = state.career;
       if (data.life === 'boot' && career.cash < 500) return showToast('Grana insuficiente para a chuteira');
       if (data.life === 'rest') career.energy = clamp(career.energy + 18);
       if (data.life === 'boot' && career.cash >= 500) { career.cash -= 500; career.skills.Finalização = clamp(career.skills.Finalização + 2); }
+      if (data.life === 'extra') {
+        career.energy = clamp(career.energy - 9);
+        const skill = pick(Object.keys(career.skills));
+        career.skills[skill] = clamp(career.skills[skill] + 2);
+        career.relationships.Técnico = clamp(career.relationships.Técnico + 3);
+      }
       if (data.life === 'media') { career.fame = clamp(career.fame + 4); career.relationships.Mídia = clamp(career.relationships.Mídia + 8); }
       if (data.life === 'night') { career.happiness = clamp(career.happiness + 12); career.energy = clamp(career.energy - 16); }
+      if (data.life === 'sponsor') {
+        if (career.fame < 25) return showToast('Você precisa de pelo menos 25 de fama');
+        career.sponsor = Math.max(career.sponsor, Math.round(career.fame * 180));
+        career.relationships.Mídia = clamp(career.relationships.Mídia + 4);
+      }
       state.lastLifeWeek = state.week;
       return render();
     }
