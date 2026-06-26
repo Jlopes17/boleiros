@@ -68,16 +68,18 @@
   }
 
   function showStorageWarning() {
-    if (document.querySelector('[data-storage-warning]')) return;
-    const warning = document.createElement('div');
-    warning.setAttribute('data-storage-warning', '1');
-    warning.style.cssText = 'position:fixed;left:10px;right:10px;bottom:10px;z-index:9999;background:#dbff6b;color:#041008;border-radius:14px;padding:12px;font:600 14px system-ui;box-shadow:0 12px 40px rgba(0,0,0,.35)';
-    warning.innerHTML = 'O save ficou grande demais para este navegador. Limpei saves antigos e deixei o jogo rodando. Para uma campanha nova, toque em Config > Resetar.';
-    document.body.appendChild(warning);
-    setTimeout(() => warning.remove(), 9000);
+    // Intentionally silent. The previous warning blocked the mobile UI.
+    // The guard still protects the game from QuotaExceededError.
+    try { sessionStorage.setItem('boleiros_storage_guard_used', '1'); } catch {}
+  }
+
+  function removeOldBlockingWarning() {
+    try { document.querySelectorAll('[data-storage-warning]').forEach(node => node.remove()); } catch {}
   }
 
   cleanLegacyAndOversized();
+  removeOldBlockingWarning();
+  window.addEventListener('DOMContentLoaded', removeOldBlockingWarning);
 
   const originalSetItem = Storage.prototype.setItem;
   Storage.prototype.setItem = function patchedSetItem(key, value) {
@@ -87,6 +89,7 @@
       if (!isQuotaError(error) || !String(key).startsWith('boleiros')) throw error;
 
       cleanLegacyAndOversized();
+      removeOldBlockingWarning();
 
       try {
         return originalSetItem.call(this, key, value);
